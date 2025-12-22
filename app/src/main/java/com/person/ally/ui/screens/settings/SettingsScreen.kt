@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
@@ -80,7 +81,8 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToAiModels: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as PersonAllyApp
@@ -168,6 +170,12 @@ fun SettingsScreen(
 
             item {
                 SettingsSection(title = "AI Preferences") {
+                    SettingsItem(
+                        icon = Icons.Default.SmartToy,
+                        title = "AI Models",
+                        subtitle = "Manage AI providers and models",
+                        onClick = onNavigateToAiModels
+                    )
                     SettingsItem(
                         icon = Icons.Default.Psychology,
                         title = "AI Personality",

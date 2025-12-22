@@ -6,8 +6,72 @@ import com.person.ally.data.model.Conversation
 import com.person.ally.data.model.MessageRole
 import com.person.ally.data.model.MessageStatus
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 class ChatRepository(private val chatDao: ChatDao) {
+
+    private val _currentConversationId = MutableStateFlow<Long?>(null)
+    val currentConversationId: StateFlow<Long?> = _currentConversationId.asStateFlow()
+
+    val currentConversation: Flow<Conversation?> = _currentConversationId.flatMapLatest { id ->
+        if (id != null) chatDao.getConversationByIdFlow(id) else flowOf(null)
+    }
+
+    val currentMessages: Flow<List<ChatMessage>> = _currentConversationId.flatMapLatest { id ->
+        if (id != null) chatDao.getMessagesForConversation(id) else flowOf(emptyList())
+    }
+
+    /**
+     * Start a new conversation or get existing active one
+     */
+    suspend fun startNewConversation(): Long {
+        val conversationId = createConversation("New Conversation")
+        _currentConversationId.value = conversationId
+        return conversationId
+    }
+
+    /**
+     * Set the current active conversation
+     */
+    fun setCurrentConversation(conversationId: Long) {
+        _currentConversationId.value = conversationId
+    }
+
+    /**
+     * Resume or create an active conversation
+     */
+    suspend fun resumeOrCreateConversation(): Long {
+        val recent = chatDao.getMostRecentConversation()
+        val conversationId = if (recent != null && !recent.isArchived) {
+            recent.id
+        } else {
+            createConversation("Conversation")
+        }
+        _currentConversationId.value = conversationId
+        return conversationId
+    }
+
+    /**
+     * Send a message in the current conversation
+     */
+    suspend fun sendMessage(content: String): Long {
+        val conversationId = _currentConversationId.value ?: resumeOrCreateConversation()
+        return sendUserMessage(conversationId, content)
+    }
+
+    /**
+     * Receive an AI response in the current conversation (legacy method for compatibility)
+     */
+    suspend fun receiveAllyResponse(content: String): Long {
+        val conversationId = _currentConversationId.value
+            ?: throw IllegalStateException("No active conversation")
+        return addAssistantMessage(conversationId, content)
+    }
 
     fun getAllConversations(): Flow<List<Conversation>> = chatDao.getAllConversations()
 
