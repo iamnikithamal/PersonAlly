@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Brand Colors - Warm gradient theme -->
+    <color name="primary">#FF6B6B</color>
+    <color name="primary_variant">#EE5A5A</color>
+    <color name="secondary">#FFB347</color>
+    <color name="secondary_variant">#FFA726</color>
+    <color name="tertiary">#845EC2</color>
+
+    <!-- Background Colors -->
+    <color name="background">#FFFBFA</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#FFF5F3</color>
+
+    <!-- Text Colors -->
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_secondary">#1A1A1A</color>
+    <color name="on_background">#1A1A1A</color>
+    <color name="on_surface">#1A1A1A</color>
+    <color name="on_surface_variant">#5C5C5C</color>
+
+    <!-- Gradient Colors -->
+    <color name="gradient_start">#FF6B6B</color>
+    <color name="gradient_middle">#FF8E53</color>
+    <color name="gradient_end">#FFB347</color>
+
+    <!-- Splash Screen -->
+    <color name="splash_background">#FFFBFA</color>
+
+    <!-- Debug Activity -->
+    <color name="debug_background">#FAFAFA</color>
+    <color name="debug_status_bar">#E0E0E0</color>
+
+    <!-- Memory Categories -->
+    <color name="memory_core">#845EC2</color>
+    <color name="memory_evolving">#FF6B6B</color>
+    <color name="memory_contextual">#4DB6AC</color>
+    <color name="memory_episodic">#FFB347</color>
+
+    <!-- Life Domains -->
+    <color name="domain_career">#5B86E5</color>
+    <color name="domain_relationships">#FF6B9D</color>
+    <color name="domain_health">#4CAF50</color>
+    <color name="domain_growth">#845EC2</color>
+    <color name="domain_finance">#26A69A</color>
+    <color name="domain_creativity">#FF7043</color>
+    <color name="domain_spirituality">#9575CD</color>
+    <color name="domain_recreation">#FFB347</color>
+
+    <!-- Status Colors -->
+    <color name="success">#4CAF50</color>
+    <color name="warning">#FFC107</color>
+    <color name="error">#F44336</color>
+    <color name="info">#2196F3</color>
+</resources>
