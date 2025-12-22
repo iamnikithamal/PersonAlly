@@ -344,14 +344,4 @@ class AiModelTypeConverters {
     @TypeConverter
     fun toRateLimitConfig(value: String): RateLimitConfig =
         gson.fromJson(value, RateLimitConfig::class.java)
-
-    @TypeConverter
-    fun fromStringMap(map: Map<String, String>): String =
-        gson.toJson(map)
-
-    @TypeConverter
-    fun toStringMap(value: String): Map<String, String> {
-        val type = object : TypeToken<Map<String, String>>() {}.type
-        return gson.fromJson(value, type) ?: emptyMap()
-    }
 }

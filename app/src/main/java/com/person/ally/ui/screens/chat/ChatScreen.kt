@@ -96,7 +96,7 @@ fun ChatScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     val userProfile by app.userProfileRepository.userProfile.collectAsState(initial = null)
-    val universalContext by app.userProfileRepository.universalContext.collectAsState(initial = null)
+    val universalContext by app.userProfileRepository.getUniversalContext().collectAsState(initial = null)
     val currentConversation by app.chatRepository.currentConversation.collectAsState(initial = null)
     val messages by app.chatRepository.currentMessages.collectAsState(initial = emptyList())
     val aiPersonality by app.settingsDataStore.aiPersonality.collectAsState(initial = AIPersonality.WARM)

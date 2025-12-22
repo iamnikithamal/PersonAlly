@@ -120,7 +120,7 @@ abstract class BaseOpenAiProvider(
     override suspend fun complete(request: CompletionRequest): AiResult<CompletionResponse> =
         withContext(Dispatchers.IO) {
             try {
-                val rateLimitCheck = checkRateLimitBeforeRequest()
+                val rateLimitCheck: AiResult<CompletionResponse>? = checkRateLimitBeforeRequest()
                 if (rateLimitCheck != null) return@withContext rateLimitCheck
 
                 val jsonBody = buildRequestBody(request.copy(stream = false))
@@ -154,7 +154,7 @@ abstract class BaseOpenAiProvider(
         }
 
     override fun streamComplete(request: CompletionRequest): Flow<StreamChunk> = callbackFlow {
-        val rateLimitCheck = checkRateLimitBeforeRequest()
+        val rateLimitCheck: AiResult<Unit>? = checkRateLimitBeforeRequest()
         if (rateLimitCheck != null && rateLimitCheck is AiResult.Error) {
             trySend(StreamChunk.Error(
                 rateLimitCheck.error.message,
@@ -250,7 +250,7 @@ abstract class BaseOpenAiProvider(
     // Abstract methods for provider-specific implementations
     protected abstract fun getDefaultModels(): List<AiModel>
     protected abstract fun parseModelsResponse(body: String): List<AiModel>
-    protected abstract override fun getDefaultModel(): String
+    abstract override fun getDefaultModel(): String
 
     // Protected helper methods
     protected open fun buildHeaders(streaming: Boolean): okhttp3.Headers {

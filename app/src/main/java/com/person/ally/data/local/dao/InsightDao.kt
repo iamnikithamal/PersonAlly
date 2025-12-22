@@ -90,7 +90,7 @@ interface InsightDao {
     @Query("SELECT * FROM goals ORDER BY createdAt DESC")
     fun getAllGoals(): Flow<List<Goal>>
 
-    @Query("SELECT * FROM goals WHERE isCompleted = 0 AND isPaused = 0 ORDER BY targetDate ASC NULLS LAST")
+    @Query("SELECT * FROM goals WHERE isCompleted = 0 AND isPaused = 0 ORDER BY CASE WHEN targetDate IS NULL THEN 1 ELSE 0 END, targetDate ASC")
     fun getActiveGoals(): Flow<List<Goal>>
 
     @Query("SELECT * FROM goals WHERE domain = :domain AND isCompleted = 0 ORDER BY progress DESC")

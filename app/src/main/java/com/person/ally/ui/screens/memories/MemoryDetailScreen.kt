@@ -50,7 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.person.ally.PersonAllyApp
-import com.person.ally.data.model.ImportanceLevel
+import com.person.ally.data.model.MemoryImportance
 import com.person.ally.data.model.Memory
 import com.person.ally.data.model.MemoryCategory
 import com.person.ally.ui.components.PersonAllyCard
@@ -170,8 +170,8 @@ fun MemoryDetailScreen(
                         )
                     }
 
-                    if (currentMemory.importance == ImportanceLevel.HIGH ||
-                        currentMemory.importance == ImportanceLevel.CRITICAL
+                    if (currentMemory.importance == MemoryImportance.HIGH ||
+                        currentMemory.importance == MemoryImportance.CRITICAL
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Star,
@@ -328,11 +328,11 @@ private fun getCategoryIcon(category: MemoryCategory) = when (category) {
     MemoryCategory.EPISODIC -> Icons.Filled.Memory
 }
 
-private fun getImportanceLabel(importance: ImportanceLevel) = when (importance) {
-    ImportanceLevel.LOW -> "Low importance"
-    ImportanceLevel.MEDIUM -> "Medium importance"
-    ImportanceLevel.HIGH -> "High importance"
-    ImportanceLevel.CRITICAL -> "Critical importance"
+private fun getImportanceLabel(importance: MemoryImportance) = when (importance) {
+    MemoryImportance.LOW -> "Low importance"
+    MemoryImportance.MEDIUM -> "Medium importance"
+    MemoryImportance.HIGH -> "High importance"
+    MemoryImportance.CRITICAL -> "Critical importance"
 }
 
 private fun formatDateTime(timestamp: Long): String {
