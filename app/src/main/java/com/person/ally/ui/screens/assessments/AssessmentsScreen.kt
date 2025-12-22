@@ -76,9 +76,9 @@ fun AssessmentsScreen(
     var selectedType by remember { mutableStateOf<AssessmentType?>(null) }
     var isVisible by remember { mutableStateOf(false) }
 
-    val allAssessments by app.assessmentRepository.allAssessments.collectAsState(initial = emptyList())
-    val completedAssessments by app.assessmentRepository.completedAssessments.collectAsState(initial = emptyList())
-    val pendingAssessments by app.assessmentRepository.pendingAssessments.collectAsState(initial = emptyList())
+    val allAssessments by app.assessmentRepository.getAllAssessments().collectAsState(initial = emptyList())
+    val completedAssessments by app.assessmentRepository.getCompletedAssessments().collectAsState(initial = emptyList())
+    val pendingAssessments by app.assessmentRepository.getAvailableAssessments().collectAsState(initial = emptyList())
 
     val filteredAssessments = if (selectedType != null) {
         allAssessments.filter { it.type == selectedType }

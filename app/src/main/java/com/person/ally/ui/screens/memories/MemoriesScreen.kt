@@ -65,6 +65,7 @@ import com.person.ally.data.model.Memory
 import com.person.ally.data.model.MemoryCategory
 import com.person.ally.ui.components.EmptyStateView
 import com.person.ally.ui.theme.PersonAllyTheme
+import com.person.ally.ui.theme.displayName
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -86,7 +87,7 @@ fun MemoriesScreen(
     } else if (selectedCategory != null) {
         app.memoryRepository.getMemoriesByCategory(selectedCategory!!).collectAsState(initial = emptyList())
     } else {
-        app.memoryRepository.allMemories.collectAsState(initial = emptyList())
+        app.memoryRepository.getAllMemories().collectAsState(initial = emptyList())
     }
 
     Scaffold(
@@ -340,17 +341,6 @@ private fun MemoryCard(
                         )
                     }
                 }
-            }
-
-            if (memory.context != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = memory.context,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
         }
     }

@@ -294,3 +294,11 @@ fun LifeDomain.getIconName(): String = when (this) {
     LifeDomain.SPIRITUALITY -> "SelfImprovement"
     LifeDomain.RECREATION -> "SportsEsports"
 }
+
+val MemoryCategory.displayName: String
+    get() = when (this) {
+        MemoryCategory.CORE_IDENTITY -> "Core Identity"
+        MemoryCategory.EVOLVING_UNDERSTANDING -> "Evolving Understanding"
+        MemoryCategory.CONTEXTUAL -> "Contextual"
+        MemoryCategory.EPISODIC -> "Episodic"
+    }
