@@ -4,6 +4,7 @@ import com.person.ally.data.local.dao.InsightDao
 import com.person.ally.data.model.DailyBriefing
 import com.person.ally.data.model.Goal
 import com.person.ally.data.model.GoalMilestone
+import com.person.ally.data.model.GoalStatus
 import com.person.ally.data.model.Habit
 import com.person.ally.data.model.HabitCompletion
 import com.person.ally.data.model.Insight
@@ -12,6 +13,7 @@ import com.person.ally.data.model.InsightType
 import com.person.ally.data.model.LifeDomain
 import com.person.ally.data.model.TimeOfDay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.util.Calendar
 import java.util.UUID
 
@@ -82,6 +84,18 @@ class InsightRepository(private val insightDao: InsightDao) {
         insightDao.getDailyBriefing(date, timeOfDay)
 
     fun getLatestBriefing(): Flow<DailyBriefing?> = insightDao.getLatestBriefing()
+
+    fun getTodayBriefing(): Flow<DailyBriefing?> {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val todayStart = calendar.timeInMillis
+        return insightDao.getBriefingsForDate(todayStart).map { briefings ->
+            briefings.firstOrNull()
+        }
+    }
 
     fun getBriefingsForDate(date: Long): Flow<List<DailyBriefing>> =
         insightDao.getBriefingsForDate(date)
@@ -230,6 +244,24 @@ class InsightRepository(private val insightDao: InsightDao) {
         insightDao.getGoalsByDomain(domain)
 
     fun getCompletedGoals(): Flow<List<Goal>> = insightDao.getCompletedGoals()
+
+    fun getGoalsByStatus(status: GoalStatus): Flow<List<Goal>> = when (status) {
+        GoalStatus.COMPLETED -> getCompletedGoals()
+        GoalStatus.IN_PROGRESS -> getActiveGoals().map { goals ->
+            goals.filter { it.progress > 0f && !it.isCompleted && !it.isPaused }
+        }
+        GoalStatus.NOT_STARTED -> getActiveGoals().map { goals ->
+            goals.filter { it.progress == 0f && !it.isCompleted && !it.isPaused }
+        }
+        GoalStatus.PAUSED -> insightDao.getActiveGoals().map { goals ->
+            goals.filter { it.isPaused }
+        }
+        GoalStatus.ABANDONED -> insightDao.getAllGoals().map { goals ->
+            goals.filter { it.status == GoalStatus.ABANDONED }
+        }
+    }
+
+    fun getAllGoals(): Flow<List<Goal>> = insightDao.getAllGoals()
 
     suspend fun getGoalById(id: Long): Goal? = insightDao.getGoalById(id)
 

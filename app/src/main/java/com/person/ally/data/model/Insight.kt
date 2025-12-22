@@ -41,6 +41,9 @@ data class Insight(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 ) {
+    val summary: String
+        get() = if (content.length > 150) content.take(147) + "..." else content
+
     fun getTypeIcon(): String = when (type) {
         InsightType.PATTERN -> "AutoAwesome"
         InsightType.DISCOVERY -> "Lightbulb"
@@ -74,12 +77,23 @@ data class DailyBriefing(
     val weatherContext: String? = null,
     val isViewed: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    val keyInsights: List<String>
+        get() = highlights.take(3)
+}
 
 enum class TimeOfDay {
     MORNING,
     MIDDAY,
     EVENING
+}
+
+enum class GoalStatus {
+    NOT_STARTED,
+    IN_PROGRESS,
+    COMPLETED,
+    PAUSED,
+    ABANDONED
 }
 
 @Entity(tableName = "goals")
@@ -99,7 +113,15 @@ data class Goal(
     val completedAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
-)
+) {
+    val status: GoalStatus
+        get() = when {
+            isCompleted -> GoalStatus.COMPLETED
+            isPaused -> GoalStatus.PAUSED
+            progress > 0f -> GoalStatus.IN_PROGRESS
+            else -> GoalStatus.NOT_STARTED
+        }
+}
 
 data class GoalMilestone(
     val id: String,

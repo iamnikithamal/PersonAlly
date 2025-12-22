@@ -15,6 +15,7 @@ import com.person.ally.ui.screens.assessments.AssessmentDetailScreen
 import com.person.ally.ui.screens.assessments.AssessmentsScreen
 import com.person.ally.ui.screens.chat.ChatScreen
 import com.person.ally.ui.screens.home.HomeScreen
+import com.person.ally.ui.screens.insights.GoalDetailScreen
 import com.person.ally.ui.screens.insights.InsightDetailScreen
 import com.person.ally.ui.screens.insights.InsightsScreen
 import com.person.ally.ui.screens.memories.MemoriesScreen
@@ -187,6 +188,17 @@ fun NavGraph(
 
         composable(Screen.ContextEdit.route) {
             ContextEditScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.GoalDetail.route,
+            arguments = listOf(navArgument("goalId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val goalId = backStackEntry.arguments?.getLong("goalId") ?: return@composable
+            GoalDetailScreen(
+                goalId = goalId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
