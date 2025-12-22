@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,10 +30,15 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,15 +66,20 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.person.ally.PersonAllyApp
+import com.person.ally.ai.agent.AllyAgent
+import com.person.ally.data.local.datastore.AIPersonality
+import com.person.ally.data.local.datastore.AIResponseLength
 import com.person.ally.data.model.ChatMessage
 import com.person.ally.data.model.MessageRole
-import com.person.ally.data.model.MessageStatus
+import com.person.ally.ui.components.MarkdownText
+import com.person.ally.ui.components.ToolExecutionIndicator
+import com.person.ally.ui.components.ToolExecutionStatus
 import com.person.ally.ui.theme.PersonAllyTheme
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -85,24 +96,152 @@ fun ChatScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     val userProfile by app.userProfileRepository.userProfile.collectAsState(initial = null)
+    val universalContext by app.userProfileRepository.universalContext.collectAsState(initial = null)
     val currentConversation by app.chatRepository.currentConversation.collectAsState(initial = null)
     val messages by app.chatRepository.currentMessages.collectAsState(initial = emptyList())
+    val aiPersonality by app.settingsDataStore.aiPersonality.collectAsState(initial = AIPersonality.WARM)
+    val aiResponseLength by app.settingsDataStore.aiResponseLength.collectAsState(initial = AIResponseLength.BALANCED)
+    val currentModel by app.aiRepository.currentModel.collectAsState()
+    val isGenerating by app.aiRepository.isGenerating.collectAsState()
+    val agentState by app.allyAgent.agentState.collectAsState()
 
     var inputText by remember { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
-    var isTyping by remember { mutableStateOf(false) }
+    var streamingContent by remember { mutableStateOf("") }
+    var streamingReasoning by remember { mutableStateOf("") }
+    var currentToolExecution by remember { mutableStateOf<Pair<String, ToolExecutionStatus>?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var pendingMessage by remember { mutableStateOf<String?>(null) }
 
     val listState = rememberLazyListState()
 
+    // Initialize conversation on first load
     LaunchedEffect(Unit) {
         if (currentConversation == null) {
-            app.chatRepository.startNewConversation()
+            app.chatRepository.resumeOrCreateConversation()
         }
     }
 
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+    // Scroll to bottom when messages change or streaming content updates
+    LaunchedEffect(messages.size, streamingContent) {
+        if (messages.isNotEmpty() || streamingContent.isNotEmpty()) {
+            val targetIndex = if (streamingContent.isNotEmpty()) messages.size else messages.size - 1
+            if (targetIndex >= 0) {
+                listState.animateScrollToItem(targetIndex.coerceAtLeast(0))
+            }
+        }
+    }
+
+    // Handle agent state changes
+    LaunchedEffect(agentState) {
+        when (val state = agentState) {
+            is AllyAgent.AgentState.Thinking -> {
+                streamingReasoning = state.reasoning
+                currentToolExecution = null
+            }
+            is AllyAgent.AgentState.Generating -> {
+                streamingContent = state.partialContent
+                currentToolExecution = null
+            }
+            is AllyAgent.AgentState.ExecutingTool -> {
+                currentToolExecution = state.toolName to ToolExecutionStatus.EXECUTING
+            }
+            is AllyAgent.AgentState.Error -> {
+                errorMessage = state.message
+                streamingContent = ""
+                streamingReasoning = ""
+                currentToolExecution = null
+            }
+            is AllyAgent.AgentState.Complete -> {
+                streamingContent = ""
+                streamingReasoning = ""
+                currentToolExecution = null
+                errorMessage = null
+            }
+            AllyAgent.AgentState.Idle -> {
+                // Reset state when idle
+            }
+        }
+    }
+
+    fun sendMessage(text: String? = null) {
+        val messageText = text ?: inputText.trim()
+        if (messageText.isBlank() || isGenerating) return
+
+        inputText = ""
+        keyboardController?.hide()
+        errorMessage = null
+        streamingContent = ""
+        streamingReasoning = ""
+        pendingMessage = messageText
+
+        scope.launch {
+            // Send user message
+            app.chatRepository.sendMessage(messageText)
+            pendingMessage = null
+
+            // Get the current model
+            val model = currentModel ?: run {
+                errorMessage = "No AI model selected. Please configure a model in Settings > AI Models."
+                return@launch
+            }
+
+            // Build system prompt
+            val userName = userProfile?.preferredName ?: userProfile?.name ?: "Friend"
+            val contextSummary = universalContext?.summary
+            val systemPrompt = app.allyAgent.generateSystemPrompt(
+                userName = userName,
+                userContext = contextSummary,
+                personality = aiPersonality.name.lowercase(),
+                responseLength = aiResponseLength.name.lowercase()
+            )
+
+            // Convert existing messages to API format
+            val conversationHistory = messages.map { msg ->
+                com.person.ally.ai.model.ChatMessage(
+                    role = when (msg.role) {
+                        MessageRole.USER -> com.person.ally.ai.model.MessageRole.USER
+                        MessageRole.ASSISTANT -> com.person.ally.ai.model.MessageRole.ASSISTANT
+                        MessageRole.SYSTEM -> com.person.ally.ai.model.MessageRole.SYSTEM
+                    },
+                    content = msg.content
+                )
+            }
+
+            // Process with AI agent
+            val startTime = System.currentTimeMillis()
+            try {
+                val response = app.allyAgent.processMessage(
+                    userMessage = messageText,
+                    model = model,
+                    systemPrompt = systemPrompt,
+                    existingHistory = conversationHistory.takeLast(20) // Limit history for context
+                ) { chunk ->
+                    // Chunks are handled via agentState
+                }
+
+                // Save assistant response
+                val responseTimeMs = System.currentTimeMillis() - startTime
+                val memoryIds = response.toolResults
+                    .filter { it.toolName == "create_memory" && it.success }
+                    .mapNotNull { result ->
+                        // Extract memory ID from result if present
+                        Regex("ID: (\\d+)").find(result.result)?.groupValues?.get(1)?.toLongOrNull()
+                    }
+
+                val conversationId = currentConversation?.id ?: return@launch
+                app.chatRepository.addAssistantMessage(
+                    conversationId = conversationId,
+                    content = response.content,
+                    tokensUsed = response.tokensUsed,
+                    responseTimeMs = responseTimeMs,
+                    memoryExtracted = memoryIds.isNotEmpty(),
+                    extractedMemoryIds = memoryIds,
+                    contextUsed = conversationHistory.isNotEmpty()
+                )
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "An unexpected error occurred"
+            }
         }
     }
 
@@ -114,14 +253,24 @@ fun ChatScreen(
     ) {
         ChatTopBar(
             showMenu = showMenu,
+            currentModelName = currentModel?.getDisplayNameOrAlias(),
             onMenuClick = { showMenu = !showMenu },
             onDismissMenu = { showMenu = false },
             onNewChat = {
                 scope.launch {
                     app.chatRepository.startNewConversation()
+                    streamingContent = ""
+                    streamingReasoning = ""
+                    errorMessage = null
                 }
                 showMenu = false
-            }
+            },
+            onStopGeneration = {
+                app.allyAgent.cancel()
+                streamingContent = ""
+                streamingReasoning = ""
+            },
+            isGenerating = isGenerating
         )
 
         LazyColumn(
@@ -132,24 +281,53 @@ fun ChatScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (messages.isEmpty()) {
+            if (messages.isEmpty() && !isGenerating && pendingMessage == null) {
                 item {
                     WelcomeMessage(userName = userProfile?.name ?: "Friend")
                 }
             }
 
-            items(messages) { message ->
+            items(messages, key = { it.id }) { message ->
                 ChatMessageBubble(
                     message = message,
-                    onMemoryClick = if (message.linkedMemoryIds.isNotEmpty()) {
-                        { onNavigateToMemory(message.linkedMemoryIds.first()) }
+                    onMemoryClick = if (message.extractedMemoryIds.isNotEmpty()) {
+                        { onNavigateToMemory(message.extractedMemoryIds.first()) }
                     } else null
                 )
             }
 
-            if (isTyping) {
+            // Show streaming content
+            if (isGenerating && (streamingContent.isNotEmpty() || streamingReasoning.isNotEmpty() || currentToolExecution != null)) {
+                item {
+                    StreamingMessageBubble(
+                        content = streamingContent,
+                        reasoning = streamingReasoning,
+                        toolExecution = currentToolExecution
+                    )
+                }
+            }
+
+            // Show typing indicator when generating but no content yet
+            if (isGenerating && streamingContent.isEmpty() && streamingReasoning.isEmpty() && currentToolExecution == null) {
                 item {
                     TypingIndicator()
+                }
+            }
+
+            // Show error message
+            if (errorMessage != null) {
+                item {
+                    ErrorMessage(
+                        message = errorMessage!!,
+                        onRetry = {
+                            val lastUserMessage = messages.lastOrNull { it.role == MessageRole.USER }?.content
+                            if (lastUserMessage != null) {
+                                errorMessage = null
+                                sendMessage(lastUserMessage)
+                            }
+                        },
+                        onDismiss = { errorMessage = null }
+                    )
                 }
             }
         }
@@ -157,23 +335,8 @@ fun ChatScreen(
         ChatInputBar(
             value = inputText,
             onValueChange = { inputText = it },
-            onSend = {
-                if (inputText.isNotBlank()) {
-                    val text = inputText.trim()
-                    inputText = ""
-                    keyboardController?.hide()
-
-                    scope.launch {
-                        app.chatRepository.sendMessage(text)
-                        isTyping = true
-                        delay(1500)
-                        app.chatRepository.receiveAllyResponse(
-                            generateAllyResponse(text, userProfile?.name ?: "Friend")
-                        )
-                        isTyping = false
-                    }
-                }
-            }
+            onSend = { sendMessage() },
+            isGenerating = isGenerating
         )
     }
 }
@@ -182,9 +345,12 @@ fun ChatScreen(
 @Composable
 private fun ChatTopBar(
     showMenu: Boolean,
+    currentModelName: String?,
     onMenuClick: () -> Unit,
     onDismissMenu: () -> Unit,
-    onNewChat: () -> Unit
+    onNewChat: () -> Unit,
+    onStopGeneration: () -> Unit,
+    isGenerating: Boolean
 ) {
     val colors = PersonAllyTheme.extendedColors
 
@@ -225,7 +391,7 @@ private fun ChatTopBar(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Always here for you",
+                        text = currentModelName ?: "No model selected",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -233,6 +399,16 @@ private fun ChatTopBar(
             }
         },
         actions = {
+            if (isGenerating) {
+                IconButton(onClick = onStopGeneration) {
+                    Icon(
+                        imageVector = Icons.Filled.Stop,
+                        contentDescription = "Stop generation",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
             Box {
                 IconButton(onClick = onMenuClick) {
                     Icon(
@@ -361,7 +537,7 @@ private fun ChatMessageBubble(
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
         Row(
-            modifier = Modifier.widthIn(max = 300.dp),
+            modifier = Modifier.widthIn(max = 320.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             if (!isUser) {
@@ -406,17 +582,20 @@ private fun ChatMessageBubble(
                 Column(
                     modifier = Modifier.padding(12.dp)
                 ) {
-                    Text(
-                        text = message.content,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (isUser) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
+                    if (isUser) {
+                        Text(
+                            text = message.content,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        MarkdownText(
+                            markdown = message.content,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-                    if (message.linkedMemoryIds.isNotEmpty() && onMemoryClick != null) {
+                    if (message.extractedMemoryIds.isNotEmpty() && onMemoryClick != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Surface(
                             modifier = Modifier
@@ -444,7 +623,7 @@ private fun ChatMessageBubble(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "Related memory",
+                                    text = "Memory saved",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = if (isUser) {
                                         MaterialTheme.colorScheme.onPrimary
@@ -462,7 +641,7 @@ private fun ChatMessageBubble(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = formatTime(message.timestamp),
+            text = formatTime(message.createdAt),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             modifier = Modifier.padding(
@@ -470,6 +649,118 @@ private fun ChatMessageBubble(
                 end = if (isUser) 0.dp else 0.dp
             )
         )
+    }
+}
+
+@Composable
+private fun StreamingMessageBubble(
+    content: String,
+    reasoning: String,
+    toolExecution: Pair<String, ToolExecutionStatus>?
+) {
+    val colors = PersonAllyTheme.extendedColors
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Row(
+            modifier = Modifier.widthIn(max = 320.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                colors.gradientStart,
+                                colors.gradientMiddle
+                            )
+                        ),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Surface(
+                shape = RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 16.dp,
+                    bottomStart = 4.dp,
+                    bottomEnd = 16.dp
+                ),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    // Show reasoning if available
+                    if (reasoning.isNotEmpty()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Psychology,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Thinking...",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontStyle = FontStyle.Italic,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                        Text(
+                            text = reasoning.take(200) + if (reasoning.length > 200) "..." else "",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+
+                    // Show tool execution
+                    if (toolExecution != null) {
+                        ToolExecutionIndicator(
+                            toolName = toolExecution.first,
+                            status = toolExecution.second,
+                            modifier = Modifier.padding(bottom = if (content.isNotEmpty()) 8.dp else 0.dp)
+                        )
+                    }
+
+                    // Show content
+                    if (content.isNotEmpty()) {
+                        MarkdownText(
+                            markdown = content,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // Show cursor
+                    if (content.isEmpty() && reasoning.isEmpty() && toolExecution == null) {
+                        Text(
+                            text = "▋",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -510,34 +801,77 @@ private fun TypingIndicator() {
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                repeat(3) { index ->
-                    var visible by remember { mutableStateOf(false) }
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Ally is thinking...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
 
-                    LaunchedEffect(Unit) {
-                        delay(index * 200L)
-                        while (true) {
-                            visible = true
-                            delay(600)
-                            visible = false
-                            delay(600)
-                        }
-                    }
+@Composable
+private fun ErrorMessage(
+    message: String,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.errorContainer
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Error,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(24.dp)
+            )
 
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(
-                                color = if (visible) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                                },
-                                shape = CircleShape
-                            )
-                    )
-                }
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Error",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                )
+            }
+
+            IconButton(onClick = onRetry) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Retry",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Dismiss",
+                    tint = MaterialTheme.colorScheme.onErrorContainer
+                )
             }
         }
     }
@@ -547,7 +881,8 @@ private fun TypingIndicator() {
 private fun ChatInputBar(
     value: String,
     onValueChange: (String) -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    isGenerating: Boolean
 ) {
     val colors = PersonAllyTheme.extendedColors
 
@@ -566,7 +901,11 @@ private fun ChatInputBar(
                 value = value,
                 onValueChange = onValueChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Message Ally...") },
+                placeholder = {
+                    Text(
+                        text = if (isGenerating) "Ally is responding..." else "Message Ally..."
+                    )
+                },
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -574,15 +913,16 @@ private fun ChatInputBar(
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { onSend() }),
-                maxLines = 4
+                maxLines = 4,
+                enabled = !isGenerating
             )
 
             Spacer(modifier = Modifier.width(8.dp))
 
             AnimatedVisibility(
-                visible = value.isNotBlank(),
+                visible = value.isNotBlank() && !isGenerating,
                 enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut()
+                exit = fadeOut() + slideOutVertically { it }
             ) {
                 Box(
                     modifier = Modifier
@@ -615,17 +955,4 @@ private fun ChatInputBar(
 private fun formatTime(timestamp: Long): String {
     val sdf = SimpleDateFormat("h:mm a", Locale.getDefault())
     return sdf.format(Date(timestamp))
-}
-
-private fun generateAllyResponse(userMessage: String, userName: String): String {
-    val responses = listOf(
-        "I hear you, $userName. That's really insightful. Would you like to explore this thought further?",
-        "Thank you for sharing that with me. It sounds like this is something meaningful to you. What else comes to mind when you think about it?",
-        "I appreciate you opening up. Based on what you've shared, I sense there might be more to explore here. What do you think?",
-        "That's a great reflection, $userName. I'm curious - how does this connect to other areas of your life?",
-        "I'm glad you brought this up. It shows a lot of self-awareness. Would you like to dig deeper into this?",
-        "Interesting perspective! I can see this matters to you. Let's explore what this means for your growth.",
-        "Thank you for trusting me with your thoughts. This kind of reflection is so valuable for understanding yourself better."
-    )
-    return responses.random()
 }

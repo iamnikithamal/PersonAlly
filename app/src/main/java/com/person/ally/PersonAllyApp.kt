@@ -2,8 +2,11 @@ package com.person.ally
 
 import android.app.Application
 import android.content.Intent
+import com.person.ally.ai.agent.AllyAgent
+import com.person.ally.ai.agent.ToolRegistry
 import com.person.ally.data.local.database.PersonAllyDatabase
 import com.person.ally.data.local.datastore.SettingsDataStore
+import com.person.ally.data.repository.AiRepository
 import com.person.ally.data.repository.AssessmentRepository
 import com.person.ally.data.repository.ChatRepository
 import com.person.ally.data.repository.InsightRepository
@@ -14,6 +17,7 @@ import com.person.ally.util.CrashHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class PersonAllyApp : Application() {
 
@@ -47,10 +51,38 @@ class PersonAllyApp : Application() {
         InsightRepository(database.insightDao())
     }
 
+    val aiRepository: AiRepository by lazy {
+        AiRepository(database.aiModelDao())
+    }
+
+    val toolRegistry: ToolRegistry by lazy {
+        ToolRegistry(
+            memoryRepository = memoryRepository,
+            userProfileRepository = userProfileRepository,
+            insightRepository = insightRepository,
+            assessmentRepository = assessmentRepository
+        )
+    }
+
+    val allyAgent: AllyAgent by lazy {
+        AllyAgent(
+            aiRepository = aiRepository,
+            toolRegistry = toolRegistry
+        )
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
         setupCrashHandler()
+        initializeAi()
+    }
+
+    private fun initializeAi() {
+        applicationScope.launch(Dispatchers.IO) {
+            aiRepository.ensureDefaultsExist()
+            aiRepository.initialize()
+        }
     }
 
     private fun setupCrashHandler() {

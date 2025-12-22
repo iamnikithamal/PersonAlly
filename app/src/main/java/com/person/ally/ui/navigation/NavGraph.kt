@@ -24,6 +24,7 @@ import com.person.ally.ui.screens.onboarding.OnboardingScreen
 import com.person.ally.ui.screens.profile.ContextEditScreen
 import com.person.ally.ui.screens.profile.ContextExportScreen
 import com.person.ally.ui.screens.profile.ProfileScreen
+import com.person.ally.ui.screens.settings.AiModelsScreen
 import com.person.ally.ui.screens.settings.SettingsScreen
 import com.person.ally.ui.screens.splash.SplashScreen
 
@@ -136,6 +137,13 @@ fun NavGraph(
 
         composable(Screen.Settings.route) {
             SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAiModels = { navController.navigate(Screen.AiModels.route) }
+            )
+        }
+
+        composable(Screen.AiModels.route) {
+            AiModelsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
