@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+
+    <!-- Background Circle with Warm Gradient -->
+    <path
+        android:pathData="M144,144m-120,0a120,120 0,1 1,240 0a120,120 0,1 1,-240 0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="24"
+                android:startY="24"
+                android:endX="264"
+                android:endY="264"
+                android:type="linear">
+                <item android:offset="0" android:color="#FFFF6B6B"/>
+                <item android:offset="0.5" android:color="#FFFF8E53"/>
+                <item android:offset="1" android:color="#FFFFB347"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Letter P - Modern Rounded Design -->
+    <path
+        android:pathData="M100,76 L100,212 C100,217.52 104.48,222 110,222 C115.52,222 120,217.52 120,212 L120,168 L156,168 C185.82,168 210,143.82 210,114 C210,84.18 185.82,60 156,60 L110,60 C104.48,60 100,64.48 100,70 L100,76 Z M120,80 L156,80 C174.78,80 190,95.22 190,114 C190,132.78 174.78,148 156,148 L120,148 L120,80 Z"
+        android:fillColor="#FFFFFF"/>
+</vector>

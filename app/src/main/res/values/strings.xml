@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PersonAlly</string>
+    <string name="app_tagline">Your AI-Powered Life Companion</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_chat">Chat</string>
+    <string name="nav_memories">Memories</string>
+    <string name="nav_insights">Insights</string>
+    <string name="nav_profile">Profile</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome_title">Welcome to PersonAlly</string>
+    <string name="onboarding_welcome_subtitle">Your journey to self-understanding begins here</string>
+    <string name="onboarding_understand_title">Truly Understood</string>
+    <string name="onboarding_understand_subtitle">An AI companion that remembers you, learns your patterns, and grows with you over time</string>
+    <string name="onboarding_memory_title">Persistent Memory</string>
+    <string name="onboarding_memory_subtitle">Never re-explain yourself. Your context travels across every conversation</string>
+    <string name="onboarding_insights_title">Deep Insights</string>
+    <string name="onboarding_insights_subtitle">Discover patterns, track growth, and gain clarity about who you are</string>
+    <string name="onboarding_name_title">Let\'s Get Started</string>
+    <string name="onboarding_name_subtitle">What should Ally call you?</string>
+    <string name="onboarding_assessment_title">Quick Introduction</string>
+    <string name="onboarding_assessment_subtitle">Help Ally understand you better with a few quick questions</string>
+
+    <!-- Chat -->
+    <string name="chat_input_hint">Message Ally…</string>
+    <string name="chat_ally_name">Ally</string>
+    <string name="chat_memory_indicator">Memory captured</string>
+
+    <!-- Memories -->
+    <string name="memories_title">Your Memories</string>
+    <string name="memories_search_hint">Search memories…</string>
+    <string name="memories_empty_title">No memories yet</string>
+    <string name="memories_empty_subtitle">Start chatting with Ally to build your memory collection</string>
+    <string name="memory_category_core">Core Identity</string>
+    <string name="memory_category_evolving">Evolving Understanding</string>
+    <string name="memory_category_contextual">Contextual</string>
+    <string name="memory_category_episodic">Episodic</string>
+
+    <!-- Assessments -->
+    <string name="assessments_title">Assessments</string>
+    <string name="assessments_available">Available</string>
+    <string name="assessments_completed">Completed</string>
+    <string name="assessments_in_progress">In Progress</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Your Profile</string>
+    <string name="profile_context_title">Universal Context</string>
+    <string name="profile_export">Export</string>
+    <string name="profile_edit">Edit</string>
+
+    <!-- Insights -->
+    <string name="insights_title">Insights</string>
+    <string name="insights_patterns">Patterns</string>
+    <string name="insights_growth">Growth</string>
+    <string name="insights_discoveries">Discoveries</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_ai_preferences">AI Preferences</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_data">Data Management</string>
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_export_import">Export / Import</string>
+    <string name="settings_about">About</string>
+
+    <!-- Home -->
+    <string name="home_greeting_morning">Good morning</string>
+    <string name="home_greeting_afternoon">Good afternoon</string>
+    <string name="home_greeting_evening">Good evening</string>
+    <string name="home_daily_briefing">Daily Briefing</string>
+    <string name="home_quick_actions">Quick Actions</string>
+    <string name="home_recent_insights">Recent Insights</string>
+    <string name="home_life_domains">Life Domains</string>
+
+    <!-- Actions -->
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_share">Share</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_skip">Skip</string>
+    <string name="action_done">Done</string>
+    <string name="action_get_started">Get Started</string>
+    <string name="action_next">Next</string>
+    <string name="action_back">Back</string>
+
+    <!-- Debug -->
+    <string name="debug_title">Crash Report</string>
+    <string name="debug_copy">Copy Log</string>
+    <string name="debug_restart">Restart App</string>
+    <string name="debug_copied">Crash log copied to clipboard</string>
+
+    <!-- Export Formats -->
+    <string name="export_json">JSON</string>
+    <string name="export_pdf">PDF</string>
+    <string name="export_markdown">Markdown</string>
+    <string name="export_text">Plain Text</string>
+
+    <!-- Life Domains -->
+    <string name="domain_career">Career</string>
+    <string name="domain_relationships">Relationships</string>
+    <string name="domain_health">Health</string>
+    <string name="domain_growth">Personal Growth</string>
+    <string name="domain_finance">Finance</string>
+    <string name="domain_creativity">Creativity</string>
+    <string name="domain_spirituality">Spirituality</string>
+    <string name="domain_recreation">Recreation</string>
+</resources>
