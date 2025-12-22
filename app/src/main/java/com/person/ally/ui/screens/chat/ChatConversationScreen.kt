@@ -866,8 +866,7 @@ private fun ChatInputBar(
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
-                .padding(bottom = 16.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             OutlinedTextField(
@@ -876,9 +875,11 @@ private fun ChatInputBar(
                 modifier = Modifier.weight(1f),
                 placeholder = {
                     Text(
-                        text = if (isGenerating) "Ally is responding..." else "Message Ally..."
+                        text = if (isGenerating) "Ally is responding..." else "Message Ally...",
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 },
+                textStyle = MaterialTheme.typography.bodyMedium,
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,

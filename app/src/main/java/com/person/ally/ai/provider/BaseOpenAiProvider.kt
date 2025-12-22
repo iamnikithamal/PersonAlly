@@ -356,13 +356,30 @@ abstract class BaseOpenAiProvider(
 
         val choices = json.getAsJsonArray("choices")?.mapNotNull { choiceElement ->
             try {
+                if (choiceElement == null || choiceElement.isJsonNull || !choiceElement.isJsonObject) {
+                    return@mapNotNull null
+                }
                 val choiceObj = choiceElement.asJsonObject
-                val messageObj = choiceObj.getAsJsonObject("message") ?: return@mapNotNull null
+
+                val messageElement = choiceObj.get("message")
+                if (messageElement == null || messageElement.isJsonNull || !messageElement.isJsonObject) {
+                    return@mapNotNull null
+                }
+                val messageObj = messageElement.asJsonObject
 
                 val toolCalls = messageObj.getAsJsonArray("tool_calls")?.mapNotNull { tcElement ->
                     try {
+                        if (tcElement == null || tcElement.isJsonNull || !tcElement.isJsonObject) {
+                            return@mapNotNull null
+                        }
                         val tcObj = tcElement.asJsonObject
-                        val funcObj = tcObj.getAsJsonObject("function") ?: return@mapNotNull null
+
+                        val funcElement = tcObj.get("function")
+                        if (funcElement == null || funcElement.isJsonNull || !funcElement.isJsonObject) {
+                            return@mapNotNull null
+                        }
+                        val funcObj = funcElement.asJsonObject
+
                         ToolCall(
                             id = getStringOrNull(tcObj, "id") ?: return@mapNotNull null,
                             type = getStringOrNull(tcObj, "type") ?: "function",
@@ -396,14 +413,15 @@ abstract class BaseOpenAiProvider(
             }
         } ?: emptyList()
 
-        val usageObj = json.getAsJsonObject("usage")
-        val usage = usageObj?.let {
+        val usageElement = json.get("usage")
+        val usage = if (usageElement != null && !usageElement.isJsonNull && usageElement.isJsonObject) {
+            val usageObj = usageElement.asJsonObject
             UsageInfo(
-                promptTokens = getIntOrNull(it, "prompt_tokens") ?: 0,
-                completionTokens = getIntOrNull(it, "completion_tokens") ?: 0,
-                totalTokens = getIntOrNull(it, "total_tokens") ?: 0
+                promptTokens = getIntOrNull(usageObj, "prompt_tokens") ?: 0,
+                completionTokens = getIntOrNull(usageObj, "completion_tokens") ?: 0,
+                totalTokens = getIntOrNull(usageObj, "total_tokens") ?: 0
             )
-        }
+        } else null
 
         return CompletionResponse(
             id = id,
@@ -435,8 +453,10 @@ abstract class BaseOpenAiProvider(
         val chunks = mutableListOf<StreamChunk>()
         val json = JsonParser.parseString(data).asJsonObject
 
-        // Check for error
-        json.getAsJsonObject("error")?.let { errorObj ->
+        // Check for error - safely handle null
+        val errorElement = json.get("error")
+        if (errorElement != null && !errorElement.isJsonNull && errorElement.isJsonObject) {
+            val errorObj = errorElement.asJsonObject
             val error = ApiError(
                 message = getStringOrNull(errorObj, "message") ?: "Unknown error",
                 type = getStringOrNull(errorObj, "type"),
@@ -451,8 +471,10 @@ abstract class BaseOpenAiProvider(
             chunks.add(StreamChunk.ModelInfo(model))
         }
 
-        // Extract usage info
-        json.getAsJsonObject("usage")?.let { usageObj ->
+        // Extract usage info - safely handle null
+        val usageElement = json.get("usage")
+        if (usageElement != null && !usageElement.isJsonNull && usageElement.isJsonObject) {
+            val usageObj = usageElement.asJsonObject
             chunks.add(StreamChunk.Usage(
                 promptTokens = getIntOrNull(usageObj, "prompt_tokens") ?: 0,
                 completionTokens = getIntOrNull(usageObj, "completion_tokens") ?: 0,
@@ -464,8 +486,13 @@ abstract class BaseOpenAiProvider(
         val choices = json.getAsJsonArray("choices") ?: return chunks
         if (choices.size() == 0) return chunks
 
-        val choice = choices.get(0).asJsonObject
-        val delta = choice.getAsJsonObject("delta") ?: return chunks
+        val choiceElement = choices.get(0)
+        if (choiceElement == null || choiceElement.isJsonNull || !choiceElement.isJsonObject) return chunks
+        val choice = choiceElement.asJsonObject
+
+        val deltaElement = choice.get("delta")
+        if (deltaElement == null || deltaElement.isJsonNull || !deltaElement.isJsonObject) return chunks
+        val delta = deltaElement.asJsonObject
 
         // Extract content - safely handle null values
         getStringOrNull(delta, "content")?.let { content ->
