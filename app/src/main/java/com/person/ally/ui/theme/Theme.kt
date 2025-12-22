@@ -129,7 +129,10 @@ data class ExtendedColors(
     val domainRecreation: Color,
     val accentPrimary: Color,
     val accentSecondary: Color,
-    val accentTertiary: Color
+    val accentTertiary: Color,
+    val gradientStart: Color,
+    val gradientMiddle: Color,
+    val gradientEnd: Color
 ) {
     fun getDomainColor(domain: LifeDomain): Color = when (domain) {
         LifeDomain.CAREER -> domainCareer
@@ -175,7 +178,10 @@ val LocalExtendedColors = staticCompositionLocalOf {
         domainRecreation = DomainRecreation,
         accentPrimary = Green50,
         accentSecondary = Teal50,
-        accentTertiary = DeepPurple50
+        accentTertiary = DeepPurple50,
+        gradientStart = Green40,
+        gradientMiddle = Teal40,
+        gradientEnd = DeepPurple40
     )
 }
 
@@ -203,7 +209,10 @@ private val LightExtendedColors = ExtendedColors(
     domainRecreation = DomainRecreation,
     accentPrimary = Green50,
     accentSecondary = Teal50,
-    accentTertiary = DeepPurple50
+    accentTertiary = DeepPurple50,
+    gradientStart = Green40,
+    gradientMiddle = Teal40,
+    gradientEnd = DeepPurple40
 )
 
 private val DarkExtendedColors = ExtendedColors(
@@ -230,7 +239,10 @@ private val DarkExtendedColors = ExtendedColors(
     domainRecreation = DomainRecreation,
     accentPrimary = Green70,
     accentSecondary = Teal70,
-    accentTertiary = DeepPurple70
+    accentTertiary = DeepPurple70,
+    gradientStart = Green70,
+    gradientMiddle = Teal70,
+    gradientEnd = DeepPurple70
 )
 
 @Composable
