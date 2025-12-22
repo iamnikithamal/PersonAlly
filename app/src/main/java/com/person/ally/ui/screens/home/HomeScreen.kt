@@ -26,12 +26,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -46,7 +47,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -59,8 +59,9 @@ import com.person.ally.data.model.Goal
 import com.person.ally.data.model.GoalStatus
 import com.person.ally.data.model.Insight
 import com.person.ally.data.model.LifeDomain
-import com.person.ally.ui.components.GradientButton
 import com.person.ally.ui.components.PersonAllyCard
+import com.person.ally.ui.components.PrimaryButton
+import com.person.ally.ui.components.ProgressIndicator
 import com.person.ally.ui.components.SectionHeader
 import com.person.ally.ui.theme.PersonAllyTheme
 import kotlinx.coroutines.delay
@@ -70,7 +71,9 @@ fun HomeScreen(
     onNavigateToChat: () -> Unit,
     onNavigateToAssessments: () -> Unit,
     onNavigateToInsight: (Long) -> Unit,
-    onNavigateToGoal: (Long) -> Unit
+    onNavigateToGoal: (Long) -> Unit,
+    onNavigateToInsights: () -> Unit,
+    onNavigateToMemories: () -> Unit
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as PersonAllyApp
@@ -101,7 +104,8 @@ fun HomeScreen(
             ) {
                 WelcomeHeader(
                     userName = userProfile?.name ?: "Friend",
-                    memoryCount = memoryCount
+                    memoryCount = memoryCount,
+                    onNavigateToMemories = onNavigateToMemories
                 )
             }
         }
@@ -161,12 +165,14 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 SectionHeader(
                     title = "Recent Insights",
+                    action = "View All",
+                    onActionClick = onNavigateToInsights,
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            items(recentInsights) { insight ->
+            items(recentInsights.take(3)) { insight ->
                 InsightCard(
                     insight = insight,
                     onClick = { onNavigateToInsight(insight.id) },
@@ -199,20 +205,14 @@ fun HomeScreen(
 @Composable
 private fun WelcomeHeader(
     userName: String,
-    memoryCount: Int
+    memoryCount: Int,
+    onNavigateToMemories: () -> Unit
 ) {
-    val colors = PersonAllyTheme.extendedColors
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        colors.gradientStart.copy(alpha = 0.1f),
-                        Color.Transparent
-                    )
-                )
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             )
             .padding(20.dp)
             .padding(top = 48.dp)
@@ -225,21 +225,15 @@ private fun WelcomeHeader(
                     modifier = Modifier
                         .size(56.dp)
                         .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    colors.gradientStart,
-                                    colors.gradientMiddle,
-                                    colors.gradientEnd
-                                )
-                            ),
+                            color = MaterialTheme.colorScheme.primary,
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Favorite,
+                        imageVector = Icons.Filled.SmartToy,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -263,9 +257,12 @@ private fun WelcomeHeader(
             Spacer(modifier = Modifier.height(16.dp))
 
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onNavigateToMemories),
                 shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                color = MaterialTheme.colorScheme.surface
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -273,7 +270,7 @@ private fun WelcomeHeader(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     StatItem(
-                        icon = Icons.Filled.Psychology,
+                        icon = Icons.Filled.Memory,
                         value = memoryCount.toString(),
                         label = "Memories"
                     )
@@ -283,7 +280,7 @@ private fun WelcomeHeader(
                         label = "Journey"
                     )
                     StatItem(
-                        icon = Icons.Filled.AutoAwesome,
+                        icon = Icons.Filled.Psychology,
                         value = "Active",
                         label = "Ally"
                     )
@@ -333,7 +330,7 @@ private fun QuickActionsRow(
             .padding(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        GradientButton(
+        PrimaryButton(
             text = "Talk to Ally",
             onClick = onChatClick,
             modifier = Modifier.weight(1f),
@@ -356,12 +353,14 @@ private fun QuickActionsRow(
                 Icon(
                     imageVector = Icons.Filled.Checklist,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Assessments",
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             }
         }
@@ -370,8 +369,6 @@ private fun QuickActionsRow(
 
 @Composable
 private fun DailyBriefingCard(briefing: DailyBriefing) {
-    val colors = PersonAllyTheme.extendedColors
-
     PersonAllyCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -387,7 +384,7 @@ private fun DailyBriefingCard(briefing: DailyBriefing) {
                     modifier = Modifier
                         .size(40.dp)
                         .background(
-                            color = colors.gradientStart.copy(alpha = 0.1f),
+                            color = MaterialTheme.colorScheme.primaryContainer,
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -395,7 +392,7 @@ private fun DailyBriefingCard(briefing: DailyBriefing) {
                     Icon(
                         imageVector = Icons.Filled.AutoAwesome,
                         contentDescription = null,
-                        tint = colors.gradientStart,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -427,7 +424,7 @@ private fun DailyBriefingCard(briefing: DailyBriefing) {
                         Text(
                             text = "•",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = colors.gradientStart
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -450,15 +447,9 @@ private fun GoalCard(
     val colors = PersonAllyTheme.extendedColors
     val domainColor = colors.getDomainColor(goal.domain)
 
-    Card(
-        modifier = Modifier
-            .width(180.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    PersonAllyCard(
+        modifier = Modifier.width(180.dp),
+        onClick = onClick
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -504,28 +495,11 @@ private fun GoalCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(goal.progress)
-                        .height(4.dp)
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(
-                                    colors.gradientStart,
-                                    colors.gradientMiddle
-                                )
-                            ),
-                            shape = RoundedCornerShape(2.dp)
-                        )
-                )
-            }
+            ProgressIndicator(
+                progress = goal.progress,
+                color = domainColor,
+                height = 4.dp
+            )
 
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -544,12 +518,9 @@ private fun InsightCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = PersonAllyTheme.extendedColors
-
     PersonAllyCard(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -559,15 +530,15 @@ private fun InsightCard(
                 modifier = Modifier
                     .size(40.dp)
                     .background(
-                        color = colors.gradientMiddle.copy(alpha = 0.1f),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.AutoAwesome,
+                    imageVector = Icons.Filled.Lightbulb,
                     contentDescription = null,
-                    tint = colors.gradientMiddle,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -591,6 +562,13 @@ private fun InsightCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+
+            Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -677,3 +655,15 @@ private fun getGreetingMessage(): String {
         else -> "Good evening! Time for reflection?"
     }
 }
+
+private val LifeDomain.displayName: String
+    get() = when (this) {
+        LifeDomain.CAREER -> "Career"
+        LifeDomain.RELATIONSHIPS -> "Relationships"
+        LifeDomain.HEALTH -> "Health"
+        LifeDomain.PERSONAL_GROWTH -> "Personal Growth"
+        LifeDomain.FINANCE -> "Finance"
+        LifeDomain.CREATIVITY -> "Creativity"
+        LifeDomain.SPIRITUALITY -> "Spirituality"
+        LifeDomain.RECREATION -> "Recreation"
+    }

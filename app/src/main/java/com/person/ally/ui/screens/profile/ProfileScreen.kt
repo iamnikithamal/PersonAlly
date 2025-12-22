@@ -1,8 +1,5 @@
 package com.person.ally.ui.screens.profile
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +21,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
@@ -36,24 +32,17 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingFlat
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -61,18 +50,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.person.ally.PersonAllyApp
-import com.person.ally.data.model.LifeDomain
 import com.person.ally.data.model.LifeDomainProgress
 import com.person.ally.data.model.PersonalityTrait
 import com.person.ally.data.model.Trend
 import com.person.ally.data.model.UniversalContext
 import com.person.ally.data.model.UserProfile
 import com.person.ally.data.model.ValueItem
-import com.person.ally.ui.components.PersonAllyCard
 import com.person.ally.ui.components.ProgressIndicator
 import com.person.ally.ui.components.SectionHeader
 import com.person.ally.ui.theme.PersonAllyTheme
-import kotlinx.coroutines.delay
 
 @Composable
 fun ProfileScreen(
@@ -88,13 +74,6 @@ fun ProfileScreen(
     val universalContext by app.userProfileRepository.getUniversalContext().collectAsState(initial = null)
     val memoryCount by app.memoryRepository.getMemoryCount().collectAsState(initial = 0)
 
-    var isVisible by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        delay(100)
-        isVisible = true
-    }
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -102,42 +81,27 @@ fun ProfileScreen(
         contentPadding = PaddingValues(bottom = 100.dp)
     ) {
         item {
-            AnimatedVisibility(
-                visible = isVisible,
-                enter = fadeIn() + slideInVertically { -it }
-            ) {
-                ProfileHeader(
-                    userProfile = userProfile,
-                    onSettingsClick = onNavigateToSettings
-                )
-            }
+            ProfileHeader(
+                userProfile = userProfile,
+                onSettingsClick = onNavigateToSettings
+            )
         }
 
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            AnimatedVisibility(
-                visible = isVisible,
-                enter = fadeIn() + slideInVertically { it / 2 }
-            ) {
-                StatsRow(
-                    userProfile = userProfile,
-                    memoryCount = memoryCount
-                )
-            }
+            StatsRow(
+                userProfile = userProfile,
+                memoryCount = memoryCount
+            )
         }
 
         item {
             Spacer(modifier = Modifier.height(24.dp))
-            AnimatedVisibility(
-                visible = isVisible,
-                enter = fadeIn() + slideInVertically { it / 2 }
-            ) {
-                ContextCard(
-                    universalContext = universalContext,
-                    onExportClick = onNavigateToExport,
-                    onEditClick = onNavigateToEdit
-                )
-            }
+            ContextCard(
+                universalContext = universalContext,
+                onExportClick = onNavigateToExport,
+                onEditClick = onNavigateToEdit
+            )
         }
 
         if (userProfile?.personalityTraits?.isNotEmpty() == true) {
@@ -219,19 +183,10 @@ private fun ProfileHeader(
     userProfile: UserProfile?,
     onSettingsClick: () -> Unit
 ) {
-    val colors = PersonAllyTheme.extendedColors
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        colors.gradientStart.copy(alpha = 0.1f),
-                        Color.Transparent
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
             .padding(20.dp)
             .padding(top = 48.dp)
     ) {
@@ -248,13 +203,7 @@ private fun ProfileHeader(
                     modifier = Modifier
                         .size(72.dp)
                         .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    colors.gradientStart,
-                                    colors.gradientMiddle,
-                                    colors.gradientEnd
-                                )
-                            ),
+                            color = MaterialTheme.colorScheme.primary,
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -269,7 +218,7 @@ private fun ProfileHeader(
                     Text(
                         text = initials,
                         style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -282,22 +231,6 @@ private fun ProfileHeader(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
-
-                    if (userProfile?.currentStreak ?: 0 > 0) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "🔥",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${userProfile?.currentStreak} day streak",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = colors.warning
-                            )
-                        }
-                    }
 
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -366,8 +299,6 @@ private fun StatItem(
     label: String,
     modifier: Modifier = Modifier
 ) {
-    val colors = PersonAllyTheme.extendedColors
-
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
@@ -380,7 +311,7 @@ private fun StatItem(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = colors.gradientMiddle,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -404,12 +335,12 @@ private fun ContextCard(
     onExportClick: () -> Unit,
     onEditClick: () -> Unit
 ) {
-    val colors = PersonAllyTheme.extendedColors
-
-    PersonAllyCard(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -422,7 +353,7 @@ private fun ContextCard(
                         modifier = Modifier
                             .size(40.dp)
                             .background(
-                                color = colors.gradientStart.copy(alpha = 0.1f),
+                                color = MaterialTheme.colorScheme.primaryContainer,
                                 shape = CircleShape
                             ),
                         contentAlignment = Alignment.Center
@@ -430,7 +361,7 @@ private fun ContextCard(
                         Icon(
                             imageVector = Icons.Default.Psychology,
                             contentDescription = null,
-                            tint = colors.gradientStart,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -455,7 +386,7 @@ private fun ContextCard(
                             .size(36.dp)
                             .clip(CircleShape)
                             .clickable(onClick = onEditClick),
-                        color = MaterialTheme.colorScheme.surfaceVariant
+                        color = MaterialTheme.colorScheme.surface
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
@@ -472,7 +403,7 @@ private fun ContextCard(
                             .size(36.dp)
                             .clip(CircleShape)
                             .clickable(onClick = onExportClick),
-                        color = MaterialTheme.colorScheme.surfaceVariant
+                        color = MaterialTheme.colorScheme.surface
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
@@ -509,7 +440,7 @@ private fun ContextCard(
                             Text(
                                 text = "•",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = colors.gradientMiddle
+                                color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -536,33 +467,22 @@ private fun ContextCard(
 
 @Composable
 private fun PersonalityTraitsSection(traits: List<PersonalityTrait>) {
-    val colors = PersonAllyTheme.extendedColors
-
     LazyRow(
         contentPadding = PaddingValues(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(traits) { trait ->
-            PersonalityTraitCard(
-                trait = trait,
-                color = colors.gradientMiddle
-            )
+            PersonalityTraitCard(trait = trait)
         }
     }
 }
 
 @Composable
-private fun PersonalityTraitCard(
-    trait: PersonalityTrait,
-    color: Color
-) {
-    Card(
+private fun PersonalityTraitCard(trait: PersonalityTrait) {
+    Surface(
         modifier = Modifier.width(160.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -575,7 +495,7 @@ private fun PersonalityTraitCard(
 
             ProgressIndicator(
                 progress = trait.score,
-                color = color,
+                color = MaterialTheme.colorScheme.primary,
                 height = 6.dp
             )
 
@@ -584,7 +504,7 @@ private fun PersonalityTraitCard(
             Text(
                 text = "${(trait.score * 100).toInt()}%",
                 style = MaterialTheme.typography.labelSmall,
-                color = color
+                color = MaterialTheme.colorScheme.primary
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -603,13 +523,6 @@ private fun PersonalityTraitCard(
 @Composable
 private fun CoreValuesSection(values: List<ValueItem>) {
     val colors = PersonAllyTheme.extendedColors
-    val valueColors = listOf(
-        colors.gradientStart,
-        colors.gradientMiddle,
-        colors.gradientEnd,
-        colors.success,
-        colors.info
-    )
 
     LazyRow(
         contentPadding = PaddingValues(horizontal = 20.dp),
@@ -617,9 +530,12 @@ private fun CoreValuesSection(values: List<ValueItem>) {
     ) {
         items(values.size) { index ->
             val value = values[index]
+            val color = colors.getDomainColor(
+                com.person.ally.data.model.LifeDomain.entries[index % com.person.ally.data.model.LifeDomain.entries.size]
+            )
             ValueItemCard(
                 value = value,
-                color = valueColors[index % valueColors.size]
+                color = color
             )
         }
     }
@@ -684,7 +600,11 @@ private fun LifeDomainProgressItem(
     val colors = PersonAllyTheme.extendedColors
     val domainColor = colors.getDomainColor(progress.domain)
 
-    PersonAllyCard(modifier = modifier.fillMaxWidth()) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -775,12 +695,6 @@ private fun QuickActionsSection(
             onClick = onAssessmentsClick
         )
         QuickActionItem(
-            icon = Icons.Default.AutoAwesome,
-            title = "Regenerate Context",
-            subtitle = "Update your universal context",
-            onClick = { /* TODO: Implement regenerate */ }
-        )
-        QuickActionItem(
             icon = Icons.Default.Settings,
             title = "Settings",
             subtitle = "Customize your experience",
@@ -855,3 +769,15 @@ private fun getMembershipDuration(createdAt: Long?): String {
         else -> "Member for ${days / 365} years"
     }
 }
+
+private val com.person.ally.data.model.LifeDomain.displayName: String
+    get() = when (this) {
+        com.person.ally.data.model.LifeDomain.CAREER -> "Career"
+        com.person.ally.data.model.LifeDomain.RELATIONSHIPS -> "Relationships"
+        com.person.ally.data.model.LifeDomain.HEALTH -> "Health"
+        com.person.ally.data.model.LifeDomain.PERSONAL_GROWTH -> "Personal Growth"
+        com.person.ally.data.model.LifeDomain.FINANCE -> "Finance"
+        com.person.ally.data.model.LifeDomain.CREATIVITY -> "Creativity"
+        com.person.ally.data.model.LifeDomain.SPIRITUALITY -> "Spirituality"
+        com.person.ally.data.model.LifeDomain.RECREATION -> "Recreation"
+    }

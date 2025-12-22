@@ -39,12 +39,12 @@ class PersonAllyApp : Application() {
         ChatRepository(database.chatDao())
     }
 
-    val assessmentRepository: AssessmentRepository by lazy {
-        AssessmentRepository(database.assessmentDao())
-    }
-
     val userProfileRepository: UserProfileRepository by lazy {
         UserProfileRepository(database.userProfileDao(), this)
+    }
+
+    val assessmentRepository: AssessmentRepository by lazy {
+        AssessmentRepository(database.assessmentDao(), userProfileRepository)
     }
 
     val insightRepository: InsightRepository by lazy {

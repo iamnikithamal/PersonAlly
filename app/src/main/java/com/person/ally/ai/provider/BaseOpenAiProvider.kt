@@ -350,46 +350,58 @@ abstract class BaseOpenAiProvider(
     protected open fun parseCompletionResponse(body: String): CompletionResponse {
         val json = JsonParser.parseString(body).asJsonObject
 
-        val id = json.get("id")?.asString ?: ""
-        val model = json.get("model")?.asString ?: ""
-        val created = json.get("created")?.asLong ?: System.currentTimeMillis()
+        val id = getStringOrNull(json, "id") ?: ""
+        val model = getStringOrNull(json, "model") ?: ""
+        val created = getLongOrNull(json, "created") ?: System.currentTimeMillis()
 
-        val choices = json.getAsJsonArray("choices")?.map { choiceElement ->
-            val choiceObj = choiceElement.asJsonObject
-            val messageObj = choiceObj.getAsJsonObject("message")
+        val choices = json.getAsJsonArray("choices")?.mapNotNull { choiceElement ->
+            try {
+                val choiceObj = choiceElement.asJsonObject
+                val messageObj = choiceObj.getAsJsonObject("message") ?: return@mapNotNull null
 
-            val toolCalls = messageObj.getAsJsonArray("tool_calls")?.map { tcElement ->
-                val tcObj = tcElement.asJsonObject
-                val funcObj = tcObj.getAsJsonObject("function")
-                ToolCall(
-                    id = tcObj.get("id").asString,
-                    type = tcObj.get("type")?.asString ?: "function",
-                    function = FunctionCall(
-                        name = funcObj.get("name").asString,
-                        arguments = funcObj.get("arguments").asString
-                    )
+                val toolCalls = messageObj.getAsJsonArray("tool_calls")?.mapNotNull { tcElement ->
+                    try {
+                        val tcObj = tcElement.asJsonObject
+                        val funcObj = tcObj.getAsJsonObject("function") ?: return@mapNotNull null
+                        ToolCall(
+                            id = getStringOrNull(tcObj, "id") ?: return@mapNotNull null,
+                            type = getStringOrNull(tcObj, "type") ?: "function",
+                            function = FunctionCall(
+                                name = getStringOrNull(funcObj, "name") ?: return@mapNotNull null,
+                                arguments = getStringOrNull(funcObj, "arguments") ?: ""
+                            )
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+
+                // Safely extract content - it may be null in some responses
+                val content = getStringOrNull(messageObj, "content") ?: ""
+                val reasoning = getStringOrNull(messageObj, "reasoning_content")
+                    ?: getStringOrNull(messageObj, "reasoning")
+
+                Choice(
+                    index = getIntOrNull(choiceObj, "index") ?: 0,
+                    message = ChatMessage(
+                        role = MessageRole.fromValue(getStringOrNull(messageObj, "role") ?: "assistant"),
+                        content = content,
+                        toolCalls = toolCalls,
+                        reasoning = reasoning
+                    ),
+                    finishReason = getStringOrNull(choiceObj, "finish_reason")
                 )
+            } catch (e: Exception) {
+                null
             }
-
-            Choice(
-                index = choiceObj.get("index")?.asInt ?: 0,
-                message = ChatMessage(
-                    role = MessageRole.fromValue(messageObj.get("role")?.asString ?: "assistant"),
-                    content = messageObj.get("content")?.asString ?: "",
-                    toolCalls = toolCalls,
-                    reasoning = messageObj.get("reasoning_content")?.asString
-                        ?: messageObj.get("reasoning")?.asString
-                ),
-                finishReason = choiceObj.get("finish_reason")?.asString
-            )
         } ?: emptyList()
 
         val usageObj = json.getAsJsonObject("usage")
         val usage = usageObj?.let {
             UsageInfo(
-                promptTokens = it.get("prompt_tokens")?.asInt ?: 0,
-                completionTokens = it.get("completion_tokens")?.asInt ?: 0,
-                totalTokens = it.get("total_tokens")?.asInt ?: 0
+                promptTokens = getIntOrNull(it, "prompt_tokens") ?: 0,
+                completionTokens = getIntOrNull(it, "completion_tokens") ?: 0,
+                totalTokens = getIntOrNull(it, "total_tokens") ?: 0
             )
         }
 
@@ -400,6 +412,19 @@ abstract class BaseOpenAiProvider(
             usage = usage,
             created = created
         )
+    }
+
+    /**
+     * Safely get a long from a JSON object, returning null if the value is null or not a number
+     */
+    private fun getLongOrNull(json: JsonObject, key: String): Long? {
+        val element = json.get(key) ?: return null
+        if (element.isJsonNull) return null
+        return try {
+            element.asLong
+        } catch (e: Exception) {
+            null
+        }
     }
 
     protected open fun parseStreamChunk(
@@ -413,25 +438,25 @@ abstract class BaseOpenAiProvider(
         // Check for error
         json.getAsJsonObject("error")?.let { errorObj ->
             val error = ApiError(
-                message = errorObj.get("message")?.asString ?: "Unknown error",
-                type = errorObj.get("type")?.asString,
-                code = errorObj.get("code")?.asString
+                message = getStringOrNull(errorObj, "message") ?: "Unknown error",
+                type = getStringOrNull(errorObj, "type"),
+                code = getStringOrNull(errorObj, "code")
             )
             chunks.add(StreamChunk.Error(error.message, error.code, error.isRetryable()))
             return chunks
         }
 
         // Extract model info
-        json.get("model")?.asString?.let { model ->
+        getStringOrNull(json, "model")?.let { model ->
             chunks.add(StreamChunk.ModelInfo(model))
         }
 
         // Extract usage info
         json.getAsJsonObject("usage")?.let { usageObj ->
             chunks.add(StreamChunk.Usage(
-                promptTokens = usageObj.get("prompt_tokens")?.asInt ?: 0,
-                completionTokens = usageObj.get("completion_tokens")?.asInt ?: 0,
-                totalTokens = usageObj.get("total_tokens")?.asInt ?: 0
+                promptTokens = getIntOrNull(usageObj, "prompt_tokens") ?: 0,
+                completionTokens = getIntOrNull(usageObj, "completion_tokens") ?: 0,
+                totalTokens = getIntOrNull(usageObj, "total_tokens") ?: 0
             ))
         }
 
@@ -442,50 +467,50 @@ abstract class BaseOpenAiProvider(
         val choice = choices.get(0).asJsonObject
         val delta = choice.getAsJsonObject("delta") ?: return chunks
 
-        // Extract content
-        delta.get("content")?.asString?.let { content ->
+        // Extract content - safely handle null values
+        getStringOrNull(delta, "content")?.let { content ->
             if (content.isNotEmpty()) {
                 chunks.add(StreamChunk.Content(content, isFirstContent))
             }
         }
 
-        // Extract reasoning content (for thinking models)
-        delta.get("reasoning_content")?.asString?.let { reasoning ->
-            if (reasoning.isNotEmpty()) {
-                chunks.add(StreamChunk.Reasoning(reasoning, isThinking = true))
-            }
-        } ?: delta.get("reasoning")?.asString?.let { reasoning ->
-            if (reasoning.isNotEmpty()) {
-                chunks.add(StreamChunk.Reasoning(reasoning, isThinking = true))
-            }
+        // Extract reasoning content (for thinking models) - safely handle null values
+        val reasoning = getStringOrNull(delta, "reasoning_content")
+            ?: getStringOrNull(delta, "reasoning")
+        if (!reasoning.isNullOrEmpty()) {
+            chunks.add(StreamChunk.Reasoning(reasoning, isThinking = true))
         }
 
         // Extract tool calls
         delta.getAsJsonArray("tool_calls")?.forEach { tcElement ->
             val tcObj = tcElement.asJsonObject
-            val index = tcObj.get("index")?.asInt ?: 0
+            val index = getIntOrNull(tcObj, "index") ?: 0
 
             val builder = pendingToolCalls.getOrPut(index) { ToolCallBuilder() }
 
-            tcObj.get("id")?.asString?.let { id ->
+            getStringOrNull(tcObj, "id")?.let { id ->
                 builder.id = id
                 val funcObj = tcObj.getAsJsonObject("function")
-                funcObj?.get("name")?.asString?.let { name ->
-                    builder.name = name
-                    chunks.add(StreamChunk.ToolCallStart(id, name))
+                funcObj?.let {
+                    getStringOrNull(it, "name")?.let { name ->
+                        builder.name = name
+                        chunks.add(StreamChunk.ToolCallStart(id, name))
+                    }
                 }
             }
 
-            tcObj.getAsJsonObject("function")?.get("arguments")?.asString?.let { args ->
-                builder.appendArguments(args)
-                if (builder.id != null) {
-                    chunks.add(StreamChunk.ToolCallArguments(builder.id!!, args))
+            tcObj.getAsJsonObject("function")?.let { funcObj ->
+                getStringOrNull(funcObj, "arguments")?.let { args ->
+                    builder.appendArguments(args)
+                    builder.id?.let { id ->
+                        chunks.add(StreamChunk.ToolCallArguments(id, args))
+                    }
                 }
             }
         }
 
         // Check finish reason
-        choice.get("finish_reason")?.asString?.let { finishReason ->
+        getStringOrNull(choice, "finish_reason")?.let { finishReason ->
             if (finishReason == "tool_calls") {
                 // Complete all pending tool calls
                 pendingToolCalls.values.forEach { builder ->
@@ -497,6 +522,32 @@ abstract class BaseOpenAiProvider(
         }
 
         return chunks
+    }
+
+    /**
+     * Safely get a string from a JSON object, returning null if the value is null or not a string
+     */
+    private fun getStringOrNull(json: JsonObject, key: String): String? {
+        val element = json.get(key) ?: return null
+        if (element.isJsonNull) return null
+        return try {
+            element.asString
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Safely get an int from a JSON object, returning null if the value is null or not a number
+     */
+    private fun getIntOrNull(json: JsonObject, key: String): Int? {
+        val element = json.get(key) ?: return null
+        if (element.isJsonNull) return null
+        return try {
+            element.asInt
+        } catch (e: Exception) {
+            null
+        }
     }
 
     protected open fun <T> handleErrorResponse(response: Response): AiResult<T> {

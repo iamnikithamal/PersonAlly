@@ -27,7 +27,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -50,7 +49,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -218,8 +216,7 @@ private fun ProgressOverview(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -246,12 +243,7 @@ private fun ProgressOverview(
                     modifier = Modifier
                         .size(56.dp)
                         .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    colors.gradientStart,
-                                    colors.gradientMiddle
-                                )
-                            ),
+                            color = MaterialTheme.colorScheme.primary,
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -260,7 +252,7 @@ private fun ProgressOverview(
                         text = "${(progress * 100).toInt()}%",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 }
             }
@@ -273,7 +265,7 @@ private fun ProgressOverview(
                     .fillMaxWidth()
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp)),
-                color = colors.gradientStart,
+                color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         }
@@ -297,8 +289,8 @@ private fun TypeFilterRow(
                 onClick = { onTypeSelected(type) },
                 label = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                    selectedLabelColor = MaterialTheme.colorScheme.primary
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
         }
@@ -319,8 +311,7 @@ private fun AssessmentCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -342,7 +333,7 @@ private fun AssessmentCard(
                                 color = if (isCompleted) {
                                     colors.success.copy(alpha = 0.1f)
                                 } else {
-                                    colors.gradientStart.copy(alpha = 0.1f)
+                                    MaterialTheme.colorScheme.primaryContainer
                                 },
                                 shape = CircleShape
                             ),
@@ -355,7 +346,7 @@ private fun AssessmentCard(
                                 Icons.Filled.Psychology
                             },
                             contentDescription = null,
-                            tint = if (isCompleted) colors.success else colors.gradientStart,
+                            tint = if (isCompleted) colors.success else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -453,7 +444,7 @@ private fun AssessmentCard(
                         Text(
                             text = "In progress",
                             style = MaterialTheme.typography.labelSmall,
-                            color = colors.gradientMiddle
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Text(
                             text = "$answeredCount/$totalQuestions",
@@ -468,7 +459,7 @@ private fun AssessmentCard(
                             .fillMaxWidth()
                             .height(4.dp)
                             .clip(RoundedCornerShape(2.dp)),
-                        color = colors.gradientMiddle,
+                        color = MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }

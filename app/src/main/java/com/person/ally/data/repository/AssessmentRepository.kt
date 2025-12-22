@@ -6,9 +6,17 @@ import com.person.ally.data.model.AssessmentAnswer
 import com.person.ally.data.model.AssessmentResult
 import com.person.ally.data.model.AssessmentStatus
 import com.person.ally.data.model.AssessmentType
+import com.person.ally.data.model.LifeDomain
+import com.person.ally.data.model.PersonalityTrait
+import com.person.ally.data.model.Trend
+import com.person.ally.data.model.UniversalContext
+import com.person.ally.data.model.ValueItem
 import kotlinx.coroutines.flow.Flow
 
-class AssessmentRepository(private val assessmentDao: AssessmentDao) {
+class AssessmentRepository(
+    private val assessmentDao: AssessmentDao,
+    private val userProfileRepository: UserProfileRepository? = null
+) {
 
     fun getAllAssessments(): Flow<List<Assessment>> = assessmentDao.getAllAssessments()
 
@@ -72,6 +80,140 @@ class AssessmentRepository(private val assessmentDao: AssessmentDao) {
             updatedAt = System.currentTimeMillis()
         )
         assessmentDao.updateAssessment(updatedAssessment)
+
+        // Update user profile and context based on assessment type
+        updateUserContextFromAssessment(updatedAssessment, results)
+    }
+
+    private suspend fun updateUserContextFromAssessment(
+        assessment: Assessment,
+        results: List<AssessmentResult>
+    ) {
+        val profileRepo = userProfileRepository ?: return
+
+        // Increment assessment count
+        profileRepo.incrementAssessmentCount()
+
+        when (assessment.type) {
+            AssessmentType.PERSONALITY -> {
+                // Update personality traits
+                val traits = results.map { result ->
+                    PersonalityTrait(
+                        name = result.dimension,
+                        score = result.score,
+                        description = result.description,
+                        strengths = result.insights.filter { it.contains("strength", ignoreCase = true) },
+                        challenges = result.insights.filter { it.contains("development", ignoreCase = true) || it.contains("challenge", ignoreCase = true) }
+                    )
+                }
+                profileRepo.updatePersonalityTraits(traits)
+
+                // Update universal context personality snapshot
+                val snapshot = buildPersonalitySnapshot(traits)
+                updateUniversalContextSection(profileRepo, personalitySnapshot = snapshot)
+            }
+
+            AssessmentType.VALUES -> {
+                // Update core values
+                val values = results.map { result ->
+                    ValueItem(
+                        name = result.dimension,
+                        importance = result.score,
+                        description = result.description
+                    )
+                }
+                profileRepo.updateCoreValues(values)
+            }
+
+            AssessmentType.GOALS -> {
+                // Update current goals in universal context
+                val goals = results.flatMap { it.insights }
+                updateUniversalContextSection(profileRepo, currentGoals = goals)
+            }
+
+            AssessmentType.EMOTIONAL -> {
+                // Update emotional patterns in universal context
+                val patterns = results.joinToString(". ") {
+                    "${it.dimension}: ${it.description}"
+                }
+                updateUniversalContextSection(profileRepo, emotionalPatterns = patterns)
+            }
+
+            AssessmentType.COGNITIVE -> {
+                // Update cognitive style in universal context
+                val style = results.joinToString(". ") {
+                    "${it.dimension}: ${it.description}"
+                }
+                updateUniversalContextSection(profileRepo, cognitiveStyle = style)
+            }
+
+            AssessmentType.RELATIONSHIPS -> {
+                // Update relationship context and life domain progress
+                val context = results.joinToString(". ") {
+                    "${it.dimension}: ${it.description}"
+                }
+                updateUniversalContextSection(profileRepo, relationshipContext = context)
+
+                // Also update life domain progress for relationships
+                val avgScore = results.map { it.score }.average().toFloat()
+                profileRepo.updateLifeDomainProgress(
+                    domain = LifeDomain.RELATIONSHIPS,
+                    score = avgScore,
+                    trend = Trend.STABLE
+                )
+            }
+
+            AssessmentType.BEHAVIORAL, AssessmentType.INTERESTS -> {
+                // Update summary insights in universal context
+                val insights = results.flatMap { it.insights }
+                if (insights.isNotEmpty()) {
+                    val existingContext = profileRepo.getUniversalContextOnce()
+                    val newPoints = (existingContext?.coreIdentityPoints ?: emptyList()) + insights.take(3)
+                    updateUniversalContextSection(profileRepo, coreIdentityPoints = newPoints.distinct().takeLast(10))
+                }
+            }
+        }
+    }
+
+    private fun buildPersonalitySnapshot(traits: List<PersonalityTrait>): String {
+        if (traits.isEmpty()) return ""
+
+        val topTraits = traits.sortedByDescending { it.score }.take(3)
+        return buildString {
+            append("Key personality traits: ")
+            append(topTraits.joinToString(", ") {
+                "${it.name} (${(it.score * 100).toInt()}%)"
+            })
+            append(". ")
+            topTraits.firstOrNull()?.let { top ->
+                if (top.strengths.isNotEmpty()) {
+                    append("Primary strength: ${top.strengths.first()}. ")
+                }
+            }
+        }
+    }
+
+    private suspend fun updateUniversalContextSection(
+        profileRepo: UserProfileRepository,
+        personalitySnapshot: String? = null,
+        currentGoals: List<String>? = null,
+        emotionalPatterns: String? = null,
+        cognitiveStyle: String? = null,
+        relationshipContext: String? = null,
+        coreIdentityPoints: List<String>? = null
+    ) {
+        val existing = profileRepo.getUniversalContextOnce() ?: UniversalContext()
+        val updated = existing.copy(
+            personalitySnapshot = personalitySnapshot ?: existing.personalitySnapshot,
+            currentGoals = currentGoals ?: existing.currentGoals,
+            emotionalPatterns = emotionalPatterns ?: existing.emotionalPatterns,
+            cognitiveStyle = cognitiveStyle ?: existing.cognitiveStyle,
+            relationshipContext = relationshipContext ?: existing.relationshipContext,
+            coreIdentityPoints = coreIdentityPoints ?: existing.coreIdentityPoints,
+            updatedAt = System.currentTimeMillis(),
+            lastGeneratedAt = System.currentTimeMillis()
+        )
+        profileRepo.updateUniversalContext(updated)
     }
 
     suspend fun updateProgress(id: String, questionIndex: Int) {

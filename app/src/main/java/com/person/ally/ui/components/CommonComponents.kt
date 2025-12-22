@@ -1,9 +1,11 @@
 package com.person.ally.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -44,17 +47,74 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.person.ally.ui.theme.PersonAllyTheme
 
+/**
+ * Primary action button with filled style
+ * Clean, modern appearance with proper Material 3 colors
+ */
+@Composable
+fun PrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    isLoading: Boolean = false,
+    icon: ImageVector? = null
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        enabled = enabled && !isLoading,
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        ),
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = MaterialTheme.colorScheme.onPrimary,
+                strokeWidth = 2.dp
+            )
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Legacy gradient button - now uses solid primary color for cleaner look
+ */
 @Composable
 fun GradientButton(
     text: String,
@@ -64,96 +124,171 @@ fun GradientButton(
     isLoading: Boolean = false,
     icon: ImageVector? = null
 ) {
-    val colors = PersonAllyTheme.extendedColors
-    Button(
+    PrimaryButton(
+        text = text,
         onClick = onClick,
-        modifier = modifier.height(52.dp),
-        enabled = enabled && !isLoading,
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent
-        ),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .background(
-                    brush = if (enabled) {
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                colors.gradientStart,
-                                colors.gradientMiddle,
-                                colors.gradientEnd
-                            )
-                        )
-                    } else {
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Gray.copy(alpha = 0.5f),
-                                Color.Gray.copy(alpha = 0.5f)
-                            )
-                        )
-                    },
-                    shape = RoundedCornerShape(16.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    if (icon != null) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Text(
-                        text = text,
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
-    }
+        modifier = modifier,
+        enabled = enabled,
+        isLoading = isLoading,
+        icon = icon
+    )
 }
 
+/**
+ * Secondary/outlined button
+ */
 @Composable
 fun SecondaryButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    icon: ImageVector? = null
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(48.dp),
         enabled = enabled,
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = MaterialTheme.colorScheme.primary
+        )
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+/**
+ * Text-only button for tertiary actions
+ */
+@Composable
+fun TextButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    color: Color = MaterialTheme.colorScheme.primary
+) {
+    androidx.compose.material3.TextButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.Medium,
+            color = if (enabled) color else color.copy(alpha = 0.38f)
         )
     }
 }
 
+/**
+ * Custom switch with proper visibility and Material 3 styling
+ * Much more visible and clearly looks like a toggle
+ */
+@Composable
+fun PersonAllySwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) 20.dp else 0.dp,
+        animationSpec = tween(200),
+        label = "thumbOffset"
+    )
+
+    val trackColor by animateColorAsState(
+        targetValue = when {
+            !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+            checked -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        },
+        animationSpec = tween(200),
+        label = "trackColor"
+    )
+
+    val thumbColor by animateColorAsState(
+        targetValue = when {
+            !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            checked -> MaterialTheme.colorScheme.onPrimary
+            else -> MaterialTheme.colorScheme.outline
+        },
+        animationSpec = tween(200),
+        label = "thumbColor"
+    )
+
+    val borderColor by animateColorAsState(
+        targetValue = when {
+            !enabled -> Color.Transparent
+            checked -> Color.Transparent
+            else -> MaterialTheme.colorScheme.outline
+        },
+        animationSpec = tween(200),
+        label = "borderColor"
+    )
+
+    Box(
+        modifier = modifier
+            .width(52.dp)
+            .height(32.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(trackColor)
+            .border(
+                width = if (!checked && enabled) 2.dp else 0.dp,
+                color = borderColor,
+                shape = RoundedCornerShape(16.dp)
+            )
+            .clickable(
+                enabled = enabled,
+                role = Role.Switch,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onCheckedChange(!checked) }
+            .padding(4.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset)
+                .size(24.dp)
+                .background(thumbColor, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (checked) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Clean card container without shadows
+ */
 @Composable
 fun PersonAllyCard(
     modifier: Modifier = Modifier,
@@ -170,23 +305,54 @@ fun PersonAllyCard(
                 )
             } else Modifier
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         content()
     }
 }
 
+/**
+ * Outlined card variant
+ */
+@Composable
+fun OutlinedCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
+    androidx.compose.material3.OutlinedCard(
+        modifier = modifier.then(
+            if (onClick != null) {
+                Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick
+                )
+            } else Modifier
+        ),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        content()
+    }
+}
+
+/**
+ * Linear progress indicator with animation
+ */
 @Composable
 fun ProgressIndicator(
     progress: Float,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
-    height: Dp = 8.dp
+    height: Dp = 6.dp
 ) {
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
@@ -206,6 +372,9 @@ fun ProgressIndicator(
     )
 }
 
+/**
+ * Circular progress with percentage label
+ */
 @Composable
 fun CircularProgressWithLabel(
     progress: Float,
@@ -249,6 +418,9 @@ fun CircularProgressWithLabel(
     }
 }
 
+/**
+ * Category/filter chip
+ */
 @Composable
 fun CategoryChip(
     text: String,
@@ -258,7 +430,7 @@ fun CategoryChip(
     onClick: (() -> Unit)? = null
 ) {
     val backgroundColor by animateColorAsState(
-        targetValue = if (selected) color else color.copy(alpha = 0.1f),
+        targetValue = if (selected) color else color.copy(alpha = 0.12f),
         animationSpec = tween(200),
         label = "backgroundColor"
     )
@@ -269,12 +441,14 @@ fun CategoryChip(
     )
 
     Surface(
-        modifier = modifier.then(
-            if (onClick != null) {
-                Modifier.clickable(onClick = onClick)
-            } else Modifier
-        ),
-        shape = RoundedCornerShape(20.dp),
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else Modifier
+            ),
+        shape = RoundedCornerShape(8.dp),
         color = backgroundColor
     ) {
         Text(
@@ -287,6 +461,9 @@ fun CategoryChip(
     }
 }
 
+/**
+ * Section header with optional action
+ */
 @Composable
 fun SectionHeader(
     title: String,
@@ -316,6 +493,9 @@ fun SectionHeader(
     }
 }
 
+/**
+ * Top app bar
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PersonAllyTopBar(
@@ -351,6 +531,9 @@ fun PersonAllyTopBar(
     )
 }
 
+/**
+ * Icon with notification badge
+ */
 @Composable
 fun IconWithBadge(
     icon: ImageVector,
@@ -386,6 +569,9 @@ fun IconWithBadge(
     }
 }
 
+/**
+ * Empty state placeholder
+ */
 @Composable
 fun EmptyStateView(
     icon: ImageVector,
@@ -402,13 +588,23 @@ fun EmptyStateView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(modifier = Modifier.height(24.dp))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -424,7 +620,7 @@ fun EmptyStateView(
         )
         if (actionText != null && onActionClick != null) {
             Spacer(modifier = Modifier.height(24.dp))
-            GradientButton(
+            PrimaryButton(
                 text = actionText,
                 onClick = onActionClick,
                 modifier = Modifier.width(200.dp)
@@ -433,6 +629,9 @@ fun EmptyStateView(
     }
 }
 
+/**
+ * Loading state
+ */
 @Composable
 fun LoadingView(
     modifier: Modifier = Modifier,
@@ -446,8 +645,9 @@ fun LoadingView(
         verticalArrangement = Arrangement.Center
     ) {
         CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
-            color = MaterialTheme.colorScheme.primary
+            modifier = Modifier.size(40.dp),
+            color = MaterialTheme.colorScheme.primary,
+            strokeWidth = 3.dp
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
@@ -458,6 +658,9 @@ fun LoadingView(
     }
 }
 
+/**
+ * Selectable filter chip
+ */
 @Composable
 fun SelectableChip(
     text: String,
@@ -466,7 +669,7 @@ fun SelectableChip(
     modifier: Modifier = Modifier
 ) {
     val scale by animateFloatAsState(
-        targetValue = if (selected) 1.05f else 1f,
+        targetValue = if (selected) 1.02f else 1f,
         animationSpec = tween(100),
         label = "scale"
     )
@@ -474,12 +677,13 @@ fun SelectableChip(
     Surface(
         modifier = modifier
             .scale(scale)
+            .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+        shape = RoundedCornerShape(8.dp),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (selected) {
@@ -487,20 +691,23 @@ fun SelectableChip(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Spacer(modifier = Modifier.width(4.dp))
             }
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelMedium,
-                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal
             )
         }
     }
 }
 
+/**
+ * Stat display card
+ */
 @Composable
 fun StatCard(
     value: String,
@@ -535,6 +742,106 @@ fun StatCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+/**
+ * Settings row item with switch
+ */
+@Composable
+fun SettingsToggleItem(
+    title: String,
+    subtitle: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    icon: ImageVector? = null
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        PersonAllySwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled
+        )
+    }
+}
+
+/**
+ * Settings row item for navigation
+ */
+@Composable
+fun SettingsNavigationItem(
+    title: String,
+    subtitle: String? = null,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    trailingContent: @Composable (() -> Unit)? = null
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (trailingContent != null) {
+            Spacer(modifier = Modifier.width(16.dp))
+            trailingContent()
         }
     }
 }

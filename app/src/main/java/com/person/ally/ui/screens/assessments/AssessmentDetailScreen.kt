@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +56,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -65,8 +65,8 @@ import com.person.ally.PersonAllyApp
 import com.person.ally.data.model.AssessmentAnswer
 import com.person.ally.data.model.AssessmentQuestion
 import com.person.ally.data.model.QuestionType
-import com.person.ally.ui.components.GradientButton
 import com.person.ally.ui.components.PersonAllyCard
+import com.person.ally.ui.components.PrimaryButton
 import com.person.ally.ui.components.SecondaryButton
 import com.person.ally.ui.theme.PersonAllyTheme
 import kotlinx.coroutines.launch
@@ -83,8 +83,6 @@ fun AssessmentDetailScreen(
 
     val assessment by app.assessmentRepository.getAssessmentByIdFlow(assessmentId)
         .collectAsState(initial = null)
-
-    val colors = PersonAllyTheme.extendedColors
 
     if (assessment == null) {
         Box(
@@ -151,7 +149,7 @@ fun AssessmentDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(4.dp),
-                    color = colors.gradientStart,
+                    color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
 
@@ -203,14 +201,14 @@ fun AssessmentDetailScreen(
                             val hasAnswer = answers.any { it.questionId == question.id }
 
                             if (currentQuestionIndex < totalQuestions - 1) {
-                                GradientButton(
+                                PrimaryButton(
                                     text = "Next",
                                     onClick = { currentQuestionIndex++ },
                                     enabled = hasAnswer,
                                     modifier = Modifier.weight(1f)
                                 )
                             } else {
-                                GradientButton(
+                                PrimaryButton(
                                     text = "Complete",
                                     onClick = {
                                         scope.launch {
@@ -255,14 +253,12 @@ private fun QuestionContent(
     answer: AssessmentAnswer?,
     onAnswerChange: (AssessmentAnswer) -> Unit
 ) {
-    val colors = PersonAllyTheme.extendedColors
-
     Column {
         Box(
             modifier = Modifier
                 .size(64.dp)
                 .background(
-                    color = colors.gradientStart.copy(alpha = 0.1f),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     shape = CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -270,7 +266,7 @@ private fun QuestionContent(
             Icon(
                 imageVector = Icons.Filled.Psychology,
                 contentDescription = null,
-                tint = colors.gradientStart,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(32.dp)
             )
         }
@@ -377,7 +373,6 @@ private fun YesNoQuestion(
     ) {
         listOf("Yes", "No").forEachIndexed { index, option ->
             val isSelected = selectedIndex == index
-            val colors = PersonAllyTheme.extendedColors
 
             Surface(
                 modifier = Modifier
@@ -385,7 +380,11 @@ private fun YesNoQuestion(
                     .height(56.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .clickable { onIndexSelected(index) },
-                color = if (isSelected) colors.gradientStart else MaterialTheme.colorScheme.surfaceVariant,
+                color = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                },
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Box(
@@ -395,7 +394,11 @@ private fun YesNoQuestion(
                         text = option,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium,
-                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     )
                 }
             }
@@ -414,7 +417,6 @@ private fun MultipleChoiceQuestion(
     ) {
         options.forEachIndexed { index, option ->
             val isSelected = selectedIndex == index
-            val colors = PersonAllyTheme.extendedColors
 
             Surface(
                 modifier = Modifier
@@ -422,13 +424,13 @@ private fun MultipleChoiceQuestion(
                     .clip(RoundedCornerShape(12.dp))
                     .clickable { onIndexSelected(index) },
                 color = if (isSelected) {
-                    colors.gradientStart.copy(alpha = 0.1f)
+                    MaterialTheme.colorScheme.primaryContainer
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant
                 },
                 shape = RoundedCornerShape(12.dp),
                 border = if (isSelected) {
-                    androidx.compose.foundation.BorderStroke(2.dp, colors.gradientStart)
+                    BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
                 } else null
             ) {
                 Row(
@@ -439,7 +441,7 @@ private fun MultipleChoiceQuestion(
                         selected = isSelected,
                         onClick = { onIndexSelected(index) },
                         colors = RadioButtonDefaults.colors(
-                            selectedColor = colors.gradientStart
+                            selectedColor = MaterialTheme.colorScheme.primary
                         )
                     )
                     Spacer(modifier = Modifier.width(12.dp))
@@ -460,7 +462,6 @@ private fun SliderQuestion(
     value: Float,
     onValueChange: (Float) -> Unit
 ) {
-    val colors = PersonAllyTheme.extendedColors
     var sliderValue by remember { mutableFloatStateOf(value) }
 
     Column {
@@ -472,8 +473,8 @@ private fun SliderQuestion(
             },
             modifier = Modifier.fillMaxWidth(),
             colors = SliderDefaults.colors(
-                thumbColor = colors.gradientStart,
-                activeTrackColor = colors.gradientStart,
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
                 inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         )
@@ -537,8 +538,6 @@ private fun RankingQuestion(
     rankedIndices: List<Int>,
     onRankingChange: (List<Int>) -> Unit
 ) {
-    val colors = PersonAllyTheme.extendedColors
-
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -567,7 +566,7 @@ private fun RankingQuestion(
                         onRankingChange(newRanking)
                     },
                 color = if (isRanked) {
-                    colors.gradientStart.copy(alpha = 0.1f)
+                    MaterialTheme.colorScheme.primaryContainer
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant
                 },
@@ -582,7 +581,7 @@ private fun RankingQuestion(
                             modifier = Modifier
                                 .size(32.dp)
                                 .background(
-                                    color = colors.gradientStart,
+                                    color = MaterialTheme.colorScheme.primary,
                                     shape = CircleShape
                                 ),
                             contentAlignment = Alignment.Center
@@ -591,7 +590,7 @@ private fun RankingQuestion(
                                 text = "${rank + 1}",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     } else {
@@ -638,13 +637,7 @@ private fun AssessmentResults(
             modifier = Modifier
                 .size(100.dp)
                 .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            colors.gradientStart,
-                            colors.gradientMiddle,
-                            colors.gradientEnd
-                        )
-                    ),
+                    color = colors.success,
                     shape = CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -706,7 +699,7 @@ private fun AssessmentResults(
                                 text = "${result.score.toInt()}/${result.maxScore.toInt()}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
-                                color = colors.gradientStart
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -716,7 +709,7 @@ private fun AssessmentResults(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        GradientButton(
+        PrimaryButton(
             text = "Done",
             onClick = onDone,
             modifier = Modifier.fillMaxWidth()

@@ -1,8 +1,5 @@
 package com.person.ally.ui.screens.memories
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
@@ -53,7 +51,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -73,6 +70,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemoriesScreen(
+    onNavigateBack: () -> Unit,
     onNavigateToMemory: (Long) -> Unit
 ) {
     val context = LocalContext.current
@@ -116,6 +114,14 @@ fun MemoriesScreen(
                         )
                     }
                 },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
                 actions = {
                     IconButton(
                         onClick = {
@@ -135,25 +141,14 @@ fun MemoriesScreen(
             )
         },
         floatingActionButton = {
-            val colors = PersonAllyTheme.extendedColors
             FloatingActionButton(
                 onClick = { /* TODO: Add new memory */ },
-                containerColor = Color.Transparent,
-                modifier = Modifier
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                colors.gradientStart,
-                                colors.gradientMiddle
-                            )
-                        ),
-                        shape = CircleShape
-                    )
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
-                    contentDescription = "Add memory",
-                    tint = Color.White
+                    contentDescription = "Add memory"
                 )
             }
         }
@@ -246,8 +241,7 @@ private fun MemoryCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -298,7 +292,7 @@ private fun MemoryCard(
                     Icon(
                         imageVector = Icons.Filled.Star,
                         contentDescription = "Important",
-                        tint = colors.gradientEnd,
+                        tint = colors.warning,
                         modifier = Modifier.size(20.dp)
                     )
                 }
