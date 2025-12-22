@@ -6,6 +6,11 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.person.ally.ai.model.AiModel
+import com.person.ally.ai.model.AiModelTypeConverters
+import com.person.ally.ai.model.AiProvider
+import com.person.ally.ai.provider.DeepInfraProvider
+import com.person.ally.data.local.dao.AiModelDao
 import com.person.ally.data.local.dao.AssessmentDao
 import com.person.ally.data.local.dao.ChatDao
 import com.person.ally.data.local.dao.InsightDao
@@ -43,9 +48,11 @@ import kotlinx.coroutines.launch
         DailyBriefing::class,
         Goal::class,
         Habit::class,
-        HabitCompletion::class
+        HabitCompletion::class,
+        AiProvider::class,
+        AiModel::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(
@@ -53,7 +60,8 @@ import kotlinx.coroutines.launch
     ChatTypeConverters::class,
     AssessmentTypeConverters::class,
     UserProfileTypeConverters::class,
-    InsightTypeConverters::class
+    InsightTypeConverters::class,
+    AiModelTypeConverters::class
 )
 abstract class PersonAllyDatabase : RoomDatabase() {
     abstract fun memoryDao(): MemoryDao
@@ -61,6 +69,7 @@ abstract class PersonAllyDatabase : RoomDatabase() {
     abstract fun assessmentDao(): AssessmentDao
     abstract fun userProfileDao(): UserProfileDao
     abstract fun insightDao(): InsightDao
+    abstract fun aiModelDao(): AiModelDao
 
     companion object {
         private const val DATABASE_NAME = "personally_database"
@@ -98,10 +107,35 @@ abstract class PersonAllyDatabase : RoomDatabase() {
             database.userProfileDao().insertUserProfile(UserProfile())
             database.userProfileDao().insertUniversalContext(UniversalContext())
             database.assessmentDao().insertAssessments(getDefaultAssessments())
+            populateDefaultAiProviders(database)
+        }
+
+        private suspend fun populateDefaultAiProviders(database: PersonAllyDatabase) {
+            // Add default DeepInfra provider
+            val deepInfraProvider = DeepInfraProvider.createDefaultProvider()
+            database.aiModelDao().insertProvider(deepInfraProvider)
+
+            // Add default models for DeepInfra
+            val deepInfra = DeepInfraProvider(deepInfraProvider)
+            val defaultModels = deepInfra.getDefaultModels()
+            database.aiModelDao().insertModels(defaultModels)
         }
 
         private fun getDefaultAssessments(): List<Assessment> {
             return DefaultAssessments.getAll()
+        }
+
+        /**
+         * Extension function to get default models from DeepInfraProvider
+         * This is a workaround since getDefaultModels() is protected
+         */
+        private fun DeepInfraProvider.getDefaultModels(): List<AiModel> {
+            // We'll create the models directly here instead
+            return createDefaultDeepInfraModels()
+        }
+
+        private fun createDefaultDeepInfraModels(): List<AiModel> {
+            return DefaultAiModels.getDeepInfraModels()
         }
     }
 }
