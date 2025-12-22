@@ -22,8 +22,6 @@ class UserProfileRepository(
 
     val userProfile: Flow<UserProfile?> = userProfileDao.getUserProfile()
 
-    fun getUserProfile(): Flow<UserProfile?> = userProfileDao.getUserProfile()
-
     suspend fun getUserProfileOnce(): UserProfile? = userProfileDao.getUserProfileOnce()
 
     suspend fun insertUserProfile(profile: UserProfile) = userProfileDao.insertUserProfile(profile)
