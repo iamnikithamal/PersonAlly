@@ -115,7 +115,18 @@ data class ExtendedColors(
     val gradientStart: Color,
     val gradientMiddle: Color,
     val gradientEnd: Color
-)
+) {
+    fun getDomainColor(domain: LifeDomain): Color = when (domain) {
+        LifeDomain.CAREER -> domainCareer
+        LifeDomain.RELATIONSHIPS -> domainRelationships
+        LifeDomain.HEALTH -> domainHealth
+        LifeDomain.PERSONAL_GROWTH -> domainGrowth
+        LifeDomain.FINANCE -> domainFinance
+        LifeDomain.CREATIVITY -> domainCreativity
+        LifeDomain.SPIRITUALITY -> domainSpirituality
+        LifeDomain.RECREATION -> domainRecreation
+    }
+}
 
 val LocalExtendedColors = staticCompositionLocalOf {
     ExtendedColors(

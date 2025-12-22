@@ -29,15 +29,15 @@ data class LifeDomainProgress(
     val insights: List<String> = emptyList()
 )
 
-enum class LifeDomain {
-    CAREER,
-    RELATIONSHIPS,
-    HEALTH,
-    PERSONAL_GROWTH,
-    FINANCE,
-    CREATIVITY,
-    SPIRITUALITY,
-    RECREATION
+enum class LifeDomain(val displayName: String) {
+    CAREER("Career"),
+    RELATIONSHIPS("Relationships"),
+    HEALTH("Health"),
+    PERSONAL_GROWTH("Personal Growth"),
+    FINANCE("Finance"),
+    CREATIVITY("Creativity"),
+    SPIRITUALITY("Spirituality"),
+    RECREATION("Recreation")
 }
 
 enum class Trend {
