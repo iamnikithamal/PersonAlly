@@ -58,7 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.person.ally.PersonAllyApp
 import com.person.ally.data.model.Assessment
-import com.person.ally.data.model.AssessmentCategory
+import com.person.ally.data.model.AssessmentType
 import com.person.ally.ui.components.EmptyStateView
 import com.person.ally.ui.components.SectionHeader
 import com.person.ally.ui.theme.PersonAllyTheme
@@ -67,21 +67,21 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssessmentsScreen(
-    onNavigateToAssessment: (Long) -> Unit,
+    onNavigateToAssessment: (String) -> Unit,
     onNavigateBack: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as PersonAllyApp
 
-    var selectedCategory by remember { mutableStateOf<AssessmentCategory?>(null) }
+    var selectedType by remember { mutableStateOf<AssessmentType?>(null) }
     var isVisible by remember { mutableStateOf(false) }
 
     val allAssessments by app.assessmentRepository.allAssessments.collectAsState(initial = emptyList())
     val completedAssessments by app.assessmentRepository.completedAssessments.collectAsState(initial = emptyList())
     val pendingAssessments by app.assessmentRepository.pendingAssessments.collectAsState(initial = emptyList())
 
-    val filteredAssessments = if (selectedCategory != null) {
-        allAssessments.filter { it.category == selectedCategory }
+    val filteredAssessments = if (selectedType != null) {
+        allAssessments.filter { it.type == selectedType }
     } else {
         allAssessments
     }
@@ -136,12 +136,12 @@ fun AssessmentsScreen(
                 }
             }
 
-            // Category Filter
+            // Type Filter
             item {
-                CategoryFilterRow(
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = { category ->
-                        selectedCategory = if (selectedCategory == category) null else category
+                TypeFilterRow(
+                    selectedType = selectedType,
+                    onTypeSelected = { type ->
+                        selectedType = if (selectedType == type) null else type
                     }
                 )
             }
@@ -159,7 +159,7 @@ fun AssessmentsScreen(
                 }
             } else {
                 // Pending Assessments
-                if (pendingAssessments.isNotEmpty() && selectedCategory == null) {
+                if (pendingAssessments.isNotEmpty() && selectedType == null) {
                     item {
                         Spacer(modifier = Modifier.height(16.dp))
                         SectionHeader(
@@ -185,7 +185,7 @@ fun AssessmentsScreen(
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                     SectionHeader(
-                        title = if (selectedCategory != null) selectedCategory!!.displayName else "All Assessments",
+                        title = if (selectedType != null) selectedType!!.name.lowercase().replaceFirstChar { it.uppercase() } else "All Assessments",
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -281,21 +281,21 @@ private fun ProgressOverview(
 }
 
 @Composable
-private fun CategoryFilterRow(
-    selectedCategory: AssessmentCategory?,
-    onCategorySelected: (AssessmentCategory) -> Unit
+private fun TypeFilterRow(
+    selectedType: AssessmentType?,
+    onTypeSelected: (AssessmentType) -> Unit
 ) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(AssessmentCategory.entries) { category ->
-            val isSelected = selectedCategory == category
+        items(AssessmentType.entries) { type ->
+            val isSelected = selectedType == type
 
             FilterChip(
                 selected = isSelected,
-                onClick = { onCategorySelected(category) },
-                label = { Text(category.displayName) },
+                onClick = { onTypeSelected(type) },
+                label = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                     selectedLabelColor = MaterialTheme.colorScheme.primary
@@ -312,7 +312,7 @@ private fun AssessmentCard(
     modifier: Modifier = Modifier
 ) {
     val colors = PersonAllyTheme.extendedColors
-    val isCompleted = assessment.completedAt != null
+    val isCompleted = assessment.isCompleted
 
     Surface(
         modifier = modifier
@@ -371,7 +371,7 @@ private fun AssessmentCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = assessment.category.displayName,
+                            text = assessment.type.name.lowercase().replaceFirstChar { it.uppercase() },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

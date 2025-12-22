@@ -126,6 +126,13 @@ data class ExtendedColors(
         LifeDomain.SPIRITUALITY -> domainSpirituality
         LifeDomain.RECREATION -> domainRecreation
     }
+
+    fun getCategoryColor(category: MemoryCategory): Color = when (category) {
+        MemoryCategory.CORE_IDENTITY -> memoryCore
+        MemoryCategory.EVOLVING_UNDERSTANDING -> memoryEvolving
+        MemoryCategory.CONTEXTUAL -> memoryContextual
+        MemoryCategory.EPISODIC -> memoryEpisodic
+    }
 }
 
 val LocalExtendedColors = staticCompositionLocalOf {

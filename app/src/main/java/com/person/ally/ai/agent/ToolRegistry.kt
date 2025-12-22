@@ -455,28 +455,28 @@ class ToolRegistry(
     }
 
     private suspend fun executeGetUserContext(): String {
-        val context = userProfileRepository.universalContext.first()
+        val universalContext = userProfileRepository.getUniversalContext().first()
             ?: return "User context not found"
 
         return buildString {
             appendLine("User Context Summary:")
-            if (context.summary.isNotBlank()) {
-                appendLine(context.summary)
+            if (universalContext.summary.isNotBlank()) {
+                appendLine(universalContext.summary)
             }
-            if (context.personalitySnapshot.isNotBlank()) {
-                appendLine("\nPersonality: ${context.personalitySnapshot}")
+            if (universalContext.personalitySnapshot.isNotBlank()) {
+                appendLine("\nPersonality: ${universalContext.personalitySnapshot}")
             }
-            if (context.coreIdentityPoints.isNotEmpty()) {
+            if (universalContext.coreIdentityPoints.isNotEmpty()) {
                 appendLine("\nCore Identity:")
-                context.coreIdentityPoints.forEach { appendLine("- $it") }
+                universalContext.coreIdentityPoints.forEach { appendLine("- $it") }
             }
-            if (context.currentGoals.isNotEmpty()) {
+            if (universalContext.currentGoals.isNotEmpty()) {
                 appendLine("\nCurrent Goals:")
-                context.currentGoals.forEach { appendLine("- $it") }
+                universalContext.currentGoals.forEach { appendLine("- $it") }
             }
-            if (context.currentChallenges.isNotEmpty()) {
+            if (universalContext.currentChallenges.isNotEmpty()) {
                 appendLine("\nCurrent Challenges:")
-                context.currentChallenges.forEach { appendLine("- $it") }
+                universalContext.currentChallenges.forEach { appendLine("- $it") }
             }
         }
     }
@@ -501,7 +501,7 @@ class ToolRegistry(
     private suspend fun executeCreateGoal(args: Map<String, Any?>): String {
         val title = args["title"] as? String ?: return "Error: title is required"
         val categoryStr = args["category"] as? String ?: return "Error: category is required"
-        val description = args["description"] as? String
+        val description = args["description"] as? String ?: ""
 
         val category = try {
             com.person.ally.data.model.LifeDomain.valueOf(categoryStr)
@@ -509,13 +509,11 @@ class ToolRegistry(
             return "Error: Invalid category '$categoryStr'"
         }
 
-        val goal = com.person.ally.data.model.Goal(
+        val id = insightRepository.createGoal(
             title = title,
             description = description,
             domain = category
         )
-
-        val id = insightRepository.insertGoal(goal)
         return "Goal created successfully: '$title'"
     }
 
@@ -550,7 +548,8 @@ class ToolRegistry(
         val insight = com.person.ally.data.model.Insight(
             title = title,
             content = content,
-            type = category
+            type = category,
+            source = com.person.ally.data.model.InsightSource.CONVERSATION
         )
 
         val id = insightRepository.insertInsight(insight)
@@ -592,9 +591,11 @@ class ToolRegistry(
             appendLine("Assessment Results:")
             filtered.forEach { assessment ->
                 appendLine("- ${assessment.title}")
-                assessment.results.forEach { result ->
+                assessment.results.forEach { result: com.person.ally.data.model.AssessmentResult ->
                     appendLine("  ${result.dimension}: ${result.score}")
-                    result.interpretation?.let { appendLine("  Interpretation: $it") }
+                    if (result.description.isNotBlank()) {
+                        appendLine("  Description: ${result.description}")
+                    }
                 }
             }
         }

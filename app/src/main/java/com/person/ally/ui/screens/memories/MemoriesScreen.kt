@@ -60,7 +60,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.person.ally.PersonAllyApp
-import com.person.ally.data.model.ImportanceLevel
+import com.person.ally.data.model.MemoryImportance
 import com.person.ally.data.model.Memory
 import com.person.ally.data.model.MemoryCategory
 import com.person.ally.ui.components.EmptyStateView
@@ -293,7 +293,7 @@ private fun MemoryCard(
                     }
                 }
 
-                if (memory.importance == ImportanceLevel.HIGH || memory.importance == ImportanceLevel.CRITICAL) {
+                if (memory.importance == MemoryImportance.HIGH || memory.importance == MemoryImportance.CRITICAL) {
                     Icon(
                         imageVector = Icons.Filled.Star,
                         contentDescription = "Important",

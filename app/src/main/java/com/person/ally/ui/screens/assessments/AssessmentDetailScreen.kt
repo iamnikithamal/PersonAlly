@@ -74,7 +74,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssessmentDetailScreen(
-    assessmentId: Long,
+    assessmentId: String,
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -97,7 +97,7 @@ fun AssessmentDetailScreen(
     }
 
     val currentAssessment = assessment!!
-    val isCompleted = currentAssessment.completedAt != null
+    val isCompleted = currentAssessment.isCompleted
 
     var currentQuestionIndex by remember { mutableIntStateOf(0) }
     var answers by remember { mutableStateOf(currentAssessment.answers) }
@@ -280,25 +280,16 @@ private fun QuestionContent(
             fontWeight = FontWeight.SemiBold
         )
 
-        if (question.description != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = question.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
         Spacer(modifier = Modifier.height(32.dp))
 
         when (question.type) {
             QuestionType.YES_NO -> YesNoQuestion(
-                selectedValue = answer?.selectedOptions?.firstOrNull(),
-                onValueSelected = { value ->
+                selectedIndex = answer?.selectedOptions?.firstOrNull(),
+                onIndexSelected = { index ->
                     onAnswerChange(
                         AssessmentAnswer(
                             questionId = question.id,
-                            selectedOptions = listOf(value)
+                            selectedOptions = listOf(index)
                         )
                     )
                 }
@@ -306,12 +297,12 @@ private fun QuestionContent(
 
             QuestionType.MULTIPLE_CHOICE -> MultipleChoiceQuestion(
                 options = question.options,
-                selectedValue = answer?.selectedOptions?.firstOrNull(),
-                onValueSelected = { value ->
+                selectedIndex = answer?.selectedOptions?.firstOrNull(),
+                onIndexSelected = { index ->
                     onAnswerChange(
                         AssessmentAnswer(
                             questionId = question.id,
-                            selectedOptions = listOf(value)
+                            selectedOptions = listOf(index)
                         )
                     )
                 }
@@ -320,24 +311,24 @@ private fun QuestionContent(
             QuestionType.SLIDER -> SliderQuestion(
                 minLabel = question.minLabel ?: "Low",
                 maxLabel = question.maxLabel ?: "High",
-                value = answer?.sliderValue ?: 0.5f,
+                value = answer?.numericAnswer?.let { it.toFloat() / question.maxValue } ?: 0.5f,
                 onValueChange = { value ->
                     onAnswerChange(
                         AssessmentAnswer(
                             questionId = question.id,
-                            sliderValue = value
+                            numericAnswer = (value * question.maxValue).toInt()
                         )
                     )
                 }
             )
 
             QuestionType.TEXT_INPUT -> TextInputQuestion(
-                value = answer?.textResponse ?: "",
+                value = answer?.textAnswer ?: "",
                 onValueChange = { value ->
                     onAnswerChange(
                         AssessmentAnswer(
                             questionId = question.id,
-                            textResponse = value
+                            textAnswer = value
                         )
                     )
                 }
@@ -345,12 +336,12 @@ private fun QuestionContent(
 
             QuestionType.SCENARIO -> ScenarioQuestion(
                 options = question.options,
-                selectedValue = answer?.selectedOptions?.firstOrNull(),
-                onValueSelected = { value ->
+                selectedIndex = answer?.selectedOptions?.firstOrNull(),
+                onIndexSelected = { index ->
                     onAnswerChange(
                         AssessmentAnswer(
                             questionId = question.id,
-                            selectedOptions = listOf(value)
+                            selectedOptions = listOf(index)
                         )
                     )
                 }
@@ -358,7 +349,7 @@ private fun QuestionContent(
 
             QuestionType.RANKING -> RankingQuestion(
                 options = question.options,
-                rankedOptions = answer?.selectedOptions ?: emptyList(),
+                rankedIndices = answer?.selectedOptions ?: emptyList(),
                 onRankingChange = { ranking ->
                     onAnswerChange(
                         AssessmentAnswer(
@@ -374,15 +365,15 @@ private fun QuestionContent(
 
 @Composable
 private fun YesNoQuestion(
-    selectedValue: String?,
-    onValueSelected: (String) -> Unit
+    selectedIndex: Int?,
+    onIndexSelected: (Int) -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        listOf("Yes", "No").forEach { option ->
-            val isSelected = selectedValue == option
+        listOf("Yes", "No").forEachIndexed { index, option ->
+            val isSelected = selectedIndex == index
             val colors = PersonAllyTheme.extendedColors
 
             Surface(
@@ -390,7 +381,7 @@ private fun YesNoQuestion(
                     .weight(1f)
                     .height(56.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .clickable { onValueSelected(option) },
+                    .clickable { onIndexSelected(index) },
                 color = if (isSelected) colors.gradientStart else MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(16.dp)
             ) {
@@ -412,21 +403,21 @@ private fun YesNoQuestion(
 @Composable
 private fun MultipleChoiceQuestion(
     options: List<String>,
-    selectedValue: String?,
-    onValueSelected: (String) -> Unit
+    selectedIndex: Int?,
+    onIndexSelected: (Int) -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        options.forEach { option ->
-            val isSelected = selectedValue == option
+        options.forEachIndexed { index, option ->
+            val isSelected = selectedIndex == index
             val colors = PersonAllyTheme.extendedColors
 
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable { onValueSelected(option) },
+                    .clickable { onIndexSelected(index) },
                 color = if (isSelected) {
                     colors.gradientStart.copy(alpha = 0.1f)
                 } else {
@@ -443,7 +434,7 @@ private fun MultipleChoiceQuestion(
                 ) {
                     RadioButton(
                         selected = isSelected,
-                        onClick = { onValueSelected(option) },
+                        onClick = { onIndexSelected(index) },
                         colors = RadioButtonDefaults.colors(
                             selectedColor = colors.gradientStart
                         )
@@ -527,21 +518,21 @@ private fun TextInputQuestion(
 @Composable
 private fun ScenarioQuestion(
     options: List<String>,
-    selectedValue: String?,
-    onValueSelected: (String) -> Unit
+    selectedIndex: Int?,
+    onIndexSelected: (Int) -> Unit
 ) {
     MultipleChoiceQuestion(
         options = options,
-        selectedValue = selectedValue,
-        onValueSelected = onValueSelected
+        selectedIndex = selectedIndex,
+        onIndexSelected = onIndexSelected
     )
 }
 
 @Composable
 private fun RankingQuestion(
     options: List<String>,
-    rankedOptions: List<String>,
-    onRankingChange: (List<String>) -> Unit
+    rankedIndices: List<Int>,
+    onRankingChange: (List<Int>) -> Unit
 ) {
     val colors = PersonAllyTheme.extendedColors
 
@@ -556,8 +547,8 @@ private fun RankingQuestion(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        options.forEach { option ->
-            val rank = rankedOptions.indexOf(option)
+        options.forEachIndexed { index, option ->
+            val rank = rankedIndices.indexOf(index)
             val isRanked = rank >= 0
 
             Surface(
@@ -566,9 +557,9 @@ private fun RankingQuestion(
                     .clip(RoundedCornerShape(12.dp))
                     .clickable {
                         val newRanking = if (isRanked) {
-                            rankedOptions.filter { it != option }
+                            rankedIndices.filter { it != index }
                         } else {
-                            rankedOptions + option
+                            rankedIndices + index
                         }
                         onRankingChange(newRanking)
                     },
@@ -697,7 +688,7 @@ private fun AssessmentResults(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    assessment.results.forEach { (key, value) ->
+                    assessment.results.forEach { result ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -705,11 +696,11 @@ private fun AssessmentResults(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = key,
+                                text = result.dimension,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = value,
+                                text = "${result.score.toInt()}/${result.maxScore.toInt()}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
                                 color = colors.gradientStart
