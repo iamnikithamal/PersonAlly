@@ -56,6 +56,7 @@ import com.person.ally.data.model.MemoryCategory
 import com.person.ally.ui.components.PersonAllyCard
 import com.person.ally.ui.components.SectionHeader
 import com.person.ally.ui.theme.PersonAllyTheme
+import com.person.ally.ui.theme.displayName
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,7 +72,7 @@ fun MemoryDetailScreen(
     val app = context.applicationContext as PersonAllyApp
     val scope = rememberCoroutineScope()
 
-    val memory by app.memoryRepository.getMemoryById(memoryId).collectAsState(initial = null)
+    val memory by app.memoryRepository.getMemoryByIdFlow(memoryId).collectAsState(initial = null)
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     val colors = PersonAllyTheme.extendedColors
@@ -196,21 +197,6 @@ fun MemoryDetailScreen(
                 )
             }
 
-            // Context
-            if (!currentMemory.context.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(24.dp))
-                SectionHeader(title = "Context")
-                Spacer(modifier = Modifier.height(12.dp))
-                PersonAllyCard {
-                    Text(
-                        text = currentMemory.context,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            }
-
             // Tags
             if (currentMemory.tags.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(24.dp))
@@ -256,12 +242,10 @@ fun MemoryDetailScreen(
                         label = "Access count",
                         value = currentMemory.accessCount.toString()
                     )
-                    if (currentMemory.lastAccessedAt != null) {
-                        MetadataRow(
-                            label = "Last accessed",
-                            value = formatDateTime(currentMemory.lastAccessedAt)
-                        )
-                    }
+                    MetadataRow(
+                        label = "Last accessed",
+                        value = formatDateTime(currentMemory.lastAccessedAt)
+                    )
                     MetadataRow(
                         label = "Confidence",
                         value = "${(currentMemory.confidence * 100).toInt()}%"

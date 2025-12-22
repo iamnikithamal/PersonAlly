@@ -81,7 +81,7 @@ fun AssessmentDetailScreen(
     val app = context.applicationContext as PersonAllyApp
     val scope = rememberCoroutineScope()
 
-    val assessment by app.assessmentRepository.getAssessmentById(assessmentId)
+    val assessment by app.assessmentRepository.getAssessmentByIdFlow(assessmentId)
         .collectAsState(initial = null)
 
     val colors = PersonAllyTheme.extendedColors
@@ -214,9 +214,12 @@ fun AssessmentDetailScreen(
                                     text = "Complete",
                                     onClick = {
                                         scope.launch {
-                                            app.assessmentRepository.submitAssessment(
-                                                assessmentId = assessmentId,
-                                                answers = answers
+                                            val results = app.assessmentRepository.calculateResults(
+                                                currentAssessment.copy(answers = answers)
+                                            )
+                                            app.assessmentRepository.completeAssessment(
+                                                id = assessmentId,
+                                                results = results
                                             )
                                             showResults = true
                                         }
