@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
@@ -37,19 +38,21 @@ import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Recommend
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,7 +64,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -83,8 +85,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InsightsScreen(
+    onNavigateBack: () -> Unit,
     onNavigateToInsight: (Long) -> Unit,
     onNavigateToGoal: (Long) -> Unit
 ) {
@@ -104,135 +108,122 @@ fun InsightsScreen(
 
     val tabs = listOf("Insights", "Goals", "Habits")
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        InsightsHeader(
-            unreadCount = unreadCount,
-            onMarkAllRead = {
-                scope.launch {
-                    app.insightRepository.markAllAsRead()
-                }
-            }
-        )
-
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = MaterialTheme.colorScheme.background,
-            contentColor = MaterialTheme.colorScheme.primary,
-            indicator = { tabPositions ->
-                SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        ) {
-            tabs.forEachIndexed { index, title ->
-                Tab(
-                    selected = selectedTab == index,
-                    onClick = { selectedTab = index },
-                    text = {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
                         Text(
-                            text = title,
-                            fontWeight = if (selectedTab == index) FontWeight.SemiBold else FontWeight.Normal
+                            text = "Insights",
+                            fontWeight = FontWeight.SemiBold
                         )
-                    }
-                )
-            }
-        }
-
-        when (selectedTab) {
-            0 -> InsightsTab(
-                insights = allInsights,
-                bookmarkedInsights = bookmarkedInsights,
-                selectedType = selectedInsightType,
-                onTypeSelected = { selectedInsightType = it },
-                onInsightClick = onNavigateToInsight,
-                onBookmarkToggle = { insight, bookmarked ->
-                    scope.launch {
-                        app.insightRepository.updateBookmarkStatus(insight.id, bookmarked)
+                        if (unreadCount > 0) {
+                            Text(
+                                text = "$unreadCount unread",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 },
-                onMarkAsRead = { insightId ->
-                    scope.launch {
-                        app.insightRepository.markAsRead(insightId)
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
-                }
-            )
-            1 -> GoalsTab(
-                activeGoals = activeGoals,
-                completedGoals = completedGoals,
-                onGoalClick = onNavigateToGoal
-            )
-            2 -> HabitsTab(
-                habits = activeHabits,
-                onHabitComplete = { habitId ->
-                    scope.launch {
-                        app.insightRepository.recordHabitCompletion(habitId)
+                },
+                actions = {
+                    if (unreadCount > 0) {
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .clickable {
+                                    scope.launch {
+                                        app.insightRepository.markAllAsRead()
+                                    }
+                                },
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "Mark all read",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
-    }
-}
-
-@Composable
-private fun InsightsHeader(
-    unreadCount: Int,
-    onMarkAllRead: () -> Unit
-) {
-    val colors = PersonAllyTheme.extendedColors
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        colors.gradientStart.copy(alpha = 0.1f),
-                        Color.Transparent
-                    )
-                )
-            )
-            .padding(20.dp)
-            .padding(top = 48.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            Column {
-                Text(
-                    text = "Insights",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                if (unreadCount > 0) {
-                    Text(
-                        text = "$unreadCount unread",
-                        style = MaterialTheme.typography.bodyMedium,
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.primary,
+                indicator = { tabPositions ->
+                    SecondaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-            }
-
-            if (unreadCount > 0) {
-                Surface(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .clickable(onClick = onMarkAllRead),
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Text(
-                        text = "Mark all read",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = {
+                            Text(
+                                text = title,
+                                fontWeight = if (selectedTab == index) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        }
                     )
                 }
+            }
+
+            when (selectedTab) {
+                0 -> InsightsTab(
+                    insights = allInsights,
+                    bookmarkedInsights = bookmarkedInsights,
+                    selectedType = selectedInsightType,
+                    onTypeSelected = { selectedInsightType = it },
+                    onInsightClick = onNavigateToInsight,
+                    onBookmarkToggle = { insight, bookmarked ->
+                        scope.launch {
+                            app.insightRepository.updateBookmarkStatus(insight.id, bookmarked)
+                        }
+                    },
+                    onMarkAsRead = { insightId ->
+                        scope.launch {
+                            app.insightRepository.markAsRead(insightId)
+                        }
+                    }
+                )
+                1 -> GoalsTab(
+                    activeGoals = activeGoals,
+                    completedGoals = completedGoals,
+                    onGoalClick = onNavigateToGoal
+                )
+                2 -> HabitsTab(
+                    habits = activeHabits,
+                    onHabitComplete = { habitId ->
+                        scope.launch {
+                            app.insightRepository.recordHabitCompletion(habitId)
+                        }
+                    }
+                )
             }
         }
     }
@@ -389,27 +380,25 @@ private fun InsightCard(
 ) {
     val colors = PersonAllyTheme.extendedColors
     val iconColor = when (insight.type) {
-        InsightType.PATTERN -> colors.gradientStart
+        InsightType.PATTERN -> MaterialTheme.colorScheme.primary
         InsightType.DISCOVERY -> colors.warning
         InsightType.GROWTH -> colors.success
         InsightType.REFLECTION -> colors.info
-        InsightType.RECOMMENDATION -> colors.gradientMiddle
-        InsightType.MILESTONE -> colors.gradientEnd
+        InsightType.RECOMMENDATION -> MaterialTheme.colorScheme.secondary
+        InsightType.MILESTONE -> MaterialTheme.colorScheme.tertiary
     }
 
-    Card(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (insight.isRead) {
-                MaterialTheme.colorScheme.surface
-            } else {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            }
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        color = if (insight.isRead) {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        } else {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        }
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -534,17 +523,13 @@ private fun CompactInsightCard(
     insight: Insight,
     onClick: () -> Unit
 ) {
-    val colors = PersonAllyTheme.extendedColors
-
-    Card(
+    Surface(
         modifier = Modifier
             .width(200.dp)
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     ) {
         Column(
             modifier = Modifier.padding(12.dp)
@@ -552,7 +537,7 @@ private fun CompactInsightCard(
             Icon(
                 imageVector = insight.type.getIcon(),
                 contentDescription = null,
-                tint = colors.gradientMiddle,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp)
             )
 
@@ -653,19 +638,17 @@ private fun GoalCard(
         label = "progress"
     )
 
-    Card(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (goal.isCompleted) {
-                colors.success.copy(alpha = 0.1f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            }
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        color = if (goal.isCompleted) {
+            colors.success.copy(alpha = 0.1f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        }
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -745,12 +728,7 @@ private fun GoalCard(
                         .fillMaxWidth(animatedProgress)
                         .height(6.dp)
                         .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(
-                                    colors.gradientStart,
-                                    colors.gradientMiddle
-                                )
-                            ),
+                            color = if (goal.isCompleted) colors.success else domainColor,
                             shape = RoundedCornerShape(3.dp)
                         )
                 )
@@ -806,15 +784,11 @@ private fun HabitCard(
 ) {
     val colors = PersonAllyTheme.extendedColors
     val domainColor = colors.getDomainColor(habit.domain)
-    var showStreak by remember { mutableStateOf(false) }
 
-    Card(
+    Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

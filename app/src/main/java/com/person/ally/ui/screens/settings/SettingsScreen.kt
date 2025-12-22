@@ -1,14 +1,7 @@
 package com.person.ally.ui.screens.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,28 +13,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.SmartToy
-import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -73,40 +58,29 @@ import androidx.compose.ui.unit.dp
 import com.person.ally.PersonAllyApp
 import com.person.ally.data.local.datastore.AIPersonality
 import com.person.ally.data.local.datastore.AIResponseLength
-import com.person.ally.data.local.datastore.TextSize
 import com.person.ally.data.local.datastore.ThemeMode
-import com.person.ally.ui.theme.PersonAllyTheme
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToAiModels: () -> Unit = {}
+    onNavigateToAiModels: () -> Unit = {},
+    onNavigateToMemories: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as PersonAllyApp
     val scope = rememberCoroutineScope()
-    val colors = PersonAllyTheme.extendedColors
 
     val themeMode by app.settingsDataStore.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
-    val dynamicColors by app.settingsDataStore.dynamicColorsEnabled.collectAsState(initial = true)
     val notificationsEnabled by app.settingsDataStore.notificationsEnabled.collectAsState(initial = true)
-    val hapticFeedback by app.settingsDataStore.hapticFeedback.collectAsState(initial = true)
     val memoryAutoCapture by app.settingsDataStore.memoryAutoCapture.collectAsState(initial = true)
-    val memorySuggestions by app.settingsDataStore.memorySuggestions.collectAsState(initial = true)
     val aiResponseLength by app.settingsDataStore.aiResponseLength.collectAsState(initial = AIResponseLength.BALANCED)
     val aiPersonality by app.settingsDataStore.aiPersonality.collectAsState(initial = AIPersonality.WARM)
-    val aiProactivity by app.settingsDataStore.aiProactivity.collectAsState(initial = 5)
-    val textSize by app.settingsDataStore.textSize.collectAsState(initial = TextSize.MEDIUM)
-    val reduceAnimations by app.settingsDataStore.reduceAnimations.collectAsState(initial = false)
-    val analyticsEnabled by app.settingsDataStore.analyticsEnabled.collectAsState(initial = false)
-    val crashReporting by app.settingsDataStore.crashReporting.collectAsState(initial = true)
 
     var showThemeDialog by remember { mutableStateOf(false) }
     var showResponseLengthDialog by remember { mutableStateOf(false) }
     var showPersonalityDialog by remember { mutableStateOf(false) }
-    var showTextSizeDialog by remember { mutableStateOf(false) }
     var showDeleteDataDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -131,54 +105,21 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(bottom = 32.dp)
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // AI Section
             item {
-                SettingsSection(title = "Appearance") {
-                    SettingsItem(
-                        icon = Icons.Default.DarkMode,
-                        title = "Theme",
-                        subtitle = themeMode.getDisplayName(),
-                        onClick = { showThemeDialog = true }
-                    )
-                    SettingsSwitchItem(
-                        icon = Icons.Default.Palette,
-                        title = "Dynamic Colors",
-                        subtitle = "Use colors from your wallpaper (Android 12+)",
-                        checked = dynamicColors,
-                        onCheckedChange = {
-                            scope.launch { app.settingsDataStore.setDynamicColors(it) }
-                        }
-                    )
-                    SettingsItem(
-                        icon = Icons.Default.TextFields,
-                        title = "Text Size",
-                        subtitle = textSize.getDisplayName(),
-                        onClick = { showTextSizeDialog = true }
-                    )
-                    SettingsSwitchItem(
-                        icon = Icons.Default.AutoAwesome,
-                        title = "Reduce Animations",
-                        subtitle = "Simplify motion for accessibility",
-                        checked = reduceAnimations,
-                        onCheckedChange = {
-                            scope.launch { app.settingsDataStore.setReduceAnimations(it) }
-                        }
-                    )
-                }
-            }
-
-            item {
-                SettingsSection(title = "AI Preferences") {
+                SettingsSection(title = "AI") {
                     SettingsItem(
                         icon = Icons.Default.SmartToy,
                         title = "AI Models",
-                        subtitle = "Manage AI providers and models",
+                        subtitle = "Select and manage AI models",
                         onClick = onNavigateToAiModels
                     )
                     SettingsItem(
                         icon = Icons.Default.Psychology,
-                        title = "AI Personality",
+                        title = "Personality",
                         subtitle = aiPersonality.getDisplayName(),
                         onClick = { showPersonalityDialog = true }
                     )
@@ -188,23 +129,20 @@ fun SettingsScreen(
                         subtitle = aiResponseLength.getDisplayName(),
                         onClick = { showResponseLengthDialog = true }
                     )
-                    SettingsSliderItem(
-                        title = "AI Proactivity",
-                        subtitle = "How often Ally offers insights",
-                        value = aiProactivity.toFloat(),
-                        onValueChange = {
-                            scope.launch { app.settingsDataStore.setAIProactivity(it.toInt()) }
-                        },
-                        valueRange = 1f..10f,
-                        steps = 8
-                    )
                 }
             }
 
+            // Data Section
             item {
-                SettingsSection(title = "Memory & Learning") {
-                    SettingsSwitchItem(
+                SettingsSection(title = "Data") {
+                    SettingsItem(
                         icon = Icons.Default.Memory,
+                        title = "Memories",
+                        subtitle = "View and manage saved memories",
+                        onClick = onNavigateToMemories
+                    )
+                    SettingsSwitchItem(
+                        icon = Icons.Default.AutoAwesome,
                         title = "Auto-Capture Memories",
                         subtitle = "Automatically save important information",
                         checked = memoryAutoCapture,
@@ -212,24 +150,22 @@ fun SettingsScreen(
                             scope.launch { app.settingsDataStore.setMemoryAutoCapture(it) }
                         }
                     )
-                    SettingsSwitchItem(
-                        icon = Icons.Default.AutoAwesome,
-                        title = "Memory Suggestions",
-                        subtitle = "Get prompts to save potential memories",
-                        checked = memorySuggestions,
-                        onCheckedChange = {
-                            scope.launch { app.settingsDataStore.setMemorySuggestions(it) }
-                        }
-                    )
                 }
             }
 
+            // Appearance Section
             item {
-                SettingsSection(title = "Notifications") {
+                SettingsSection(title = "Appearance") {
+                    SettingsItem(
+                        icon = Icons.Default.DarkMode,
+                        title = "Theme",
+                        subtitle = themeMode.getDisplayName(),
+                        onClick = { showThemeDialog = true }
+                    )
                     SettingsSwitchItem(
                         icon = Icons.Default.Notifications,
-                        title = "Enable Notifications",
-                        subtitle = "Receive daily briefings and insights",
+                        title = "Notifications",
+                        subtitle = "Daily briefings and insights",
                         checked = notificationsEnabled,
                         onCheckedChange = {
                             scope.launch { app.settingsDataStore.setNotificationsEnabled(it) }
@@ -238,39 +174,14 @@ fun SettingsScreen(
                 }
             }
 
+            // About & Data Section
             item {
-                SettingsSection(title = "Feedback & Accessibility") {
-                    SettingsSwitchItem(
-                        icon = Icons.Default.Vibration,
-                        title = "Haptic Feedback",
-                        subtitle = "Vibration on interactions",
-                        checked = hapticFeedback,
-                        onCheckedChange = {
-                            scope.launch { app.settingsDataStore.setHapticFeedback(it) }
-                        }
-                    )
-                }
-            }
-
-            item {
-                SettingsSection(title = "Privacy & Data") {
-                    SettingsSwitchItem(
-                        icon = Icons.Default.BugReport,
-                        title = "Crash Reporting",
-                        subtitle = "Help improve the app by sharing crash data",
-                        checked = crashReporting,
-                        onCheckedChange = {
-                            scope.launch { app.settingsDataStore.setCrashReporting(it) }
-                        }
-                    )
-                    SettingsSwitchItem(
+                SettingsSection(title = "About") {
+                    SettingsItem(
                         icon = Icons.Default.Info,
-                        title = "Analytics",
-                        subtitle = "Share anonymous usage statistics",
-                        checked = analyticsEnabled,
-                        onCheckedChange = {
-                            scope.launch { app.settingsDataStore.setAnalyticsEnabled(it) }
-                        }
+                        title = "Version",
+                        subtitle = "1.0.0",
+                        onClick = { }
                     )
                     SettingsItem(
                         icon = Icons.Default.DeleteForever,
@@ -283,18 +194,12 @@ fun SettingsScreen(
             }
 
             item {
-                SettingsSection(title = "About") {
-                    SettingsItem(
-                        icon = Icons.Default.Info,
-                        title = "Version",
-                        subtitle = "1.0.0",
-                        onClick = { }
-                    )
-                }
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
 
+    // Theme Dialog
     if (showThemeDialog) {
         SelectionDialog(
             title = "Theme",
@@ -310,6 +215,7 @@ fun SettingsScreen(
         )
     }
 
+    // Response Length Dialog
     if (showResponseLengthDialog) {
         SelectionDialog(
             title = "Response Length",
@@ -325,6 +231,7 @@ fun SettingsScreen(
         )
     }
 
+    // Personality Dialog
     if (showPersonalityDialog) {
         SelectionDialog(
             title = "AI Personality",
@@ -340,21 +247,7 @@ fun SettingsScreen(
         )
     }
 
-    if (showTextSizeDialog) {
-        SelectionDialog(
-            title = "Text Size",
-            options = TextSize.entries.map { it.getDisplayName() },
-            selectedIndex = TextSize.entries.indexOf(textSize),
-            onDismiss = { showTextSizeDialog = false },
-            onSelect = { index ->
-                scope.launch {
-                    app.settingsDataStore.setTextSize(TextSize.entries[index])
-                }
-                showTextSizeDialog = false
-            }
-        )
-    }
-
+    // Delete Data Dialog
     if (showDeleteDataDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDataDialog = false },
@@ -390,25 +283,18 @@ private fun SettingsSection(
     title: String,
     content: @Composable () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 24.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+            modifier = Modifier.padding(bottom = 8.dp)
         )
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 1.dp
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ) {
             Column {
                 content()
@@ -475,8 +361,6 @@ private fun SettingsSwitchItem(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    val colors = PersonAllyTheme.extendedColors
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -510,65 +394,10 @@ private fun SettingsSwitchItem(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                checkedTrackColor = colors.gradientStart.copy(alpha = 0.3f)
-            )
-        )
-    }
-}
-
-@Composable
-private fun SettingsSliderItem(
-    title: String,
-    subtitle: String,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>,
-    steps: Int
-) {
-    val colors = PersonAllyTheme.extendedColors
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Text(
-                text = value.toInt().toString(),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            steps = steps,
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = colors.gradientMiddle
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         )
     }

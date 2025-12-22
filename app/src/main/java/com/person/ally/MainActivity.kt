@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -31,8 +30,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,7 +59,7 @@ private fun MainApp() {
     val themeMode by app.settingsDataStore.themeMode.collectAsState(
         initial = com.person.ally.data.local.datastore.ThemeMode.SYSTEM
     )
-    val dynamicColors by app.settingsDataStore.dynamicColorsEnabled.collectAsState(initial = true)
+    val dynamicColors by app.settingsDataStore.dynamicColorsEnabled.collectAsState(initial = false)
 
     PersonAllyTheme(
         themeMode = themeMode,
@@ -83,12 +80,11 @@ private fun MainScreen() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    // Only show bottom bar for main tab screens
     val bottomNavRoutes = remember {
         listOf(
             Screen.Home.route,
             Screen.Chat.route,
-            Screen.Memories.route,
-            Screen.Insights.route,
             Screen.Profile.route
         )
     }
@@ -107,12 +103,12 @@ private fun MainScreen() {
                 visible = shouldShowBottomBar,
                 enter = slideInVertically(
                     initialOffsetY = { it },
-                    animationSpec = tween(300)
-                ) + fadeIn(animationSpec = tween(300)),
+                    animationSpec = tween(200)
+                ) + fadeIn(animationSpec = tween(200)),
                 exit = slideOutVertically(
                     targetOffsetY = { it },
-                    animationSpec = tween(300)
-                ) + fadeOut(animationSpec = tween(300))
+                    animationSpec = tween(200)
+                ) + fadeOut(animationSpec = tween(200))
             ) {
                 PersonAllyBottomNavigation(
                     currentRoute = currentRoute,
@@ -148,16 +144,8 @@ private fun PersonAllyBottomNavigation(
     currentRoute: String?,
     onItemSelected: (String) -> Unit
 ) {
-    val elevation by animateDpAsState(
-        targetValue = 8.dp,
-        animationSpec = tween(300),
-        label = "elevation"
-    )
-
     NavigationBar(
-        modifier = Modifier
-            .shadow(elevation = elevation)
-            .windowInsetsPadding(WindowInsets.navigationBars),
+        modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp
     ) {
