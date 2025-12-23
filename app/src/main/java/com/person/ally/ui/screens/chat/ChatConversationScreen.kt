@@ -1240,7 +1240,7 @@ private fun ModelChip(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Icon(
-                imageVector = if (isThinkingModel) Icons.Outlined.Psychology else Icons.Outlined.AutoAwesome,
+                imageVector = if (isThinkingModel) Icons.Filled.Psychology else Icons.Outlined.AutoAwesome,
                 contentDescription = null,
                 modifier = Modifier.size(12.dp),
                 tint = if (isThinkingModel) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
