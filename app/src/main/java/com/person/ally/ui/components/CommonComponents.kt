@@ -72,7 +72,7 @@ fun PrimaryButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = Modifier.height(48.dp).then(modifier),
+        modifier = modifier,
         enabled = enabled && !isLoading,
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(

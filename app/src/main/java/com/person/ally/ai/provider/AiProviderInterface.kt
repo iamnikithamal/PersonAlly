@@ -137,22 +137,46 @@ interface StreamListener {
 }
 
 /**
- * Configuration for retry behavior
+ * Configuration for retry behavior with exponential backoff and jitter
  */
 data class RetryConfig(
     val maxRetries: Int = 3,
     val initialDelayMs: Long = 1000,
     val maxDelayMs: Long = 30000,
     val backoffMultiplier: Float = 2.0f,
+    val jitterFactor: Float = 0.2f, // Add 0-20% jitter to prevent thundering herd
     val retryOnRateLimit: Boolean = true,
-    val retryOnServerError: Boolean = true
-)
+    val retryOnServerError: Boolean = true,
+    val retryOnNetworkError: Boolean = true
+) {
+    companion object {
+        /** Aggressive retry config for critical operations */
+        val AGGRESSIVE = RetryConfig(
+            maxRetries = 5,
+            initialDelayMs = 500,
+            maxDelayMs = 60000,
+            backoffMultiplier = 1.5f
+        )
+
+        /** Conservative retry config for non-critical operations */
+        val CONSERVATIVE = RetryConfig(
+            maxRetries = 2,
+            initialDelayMs = 2000,
+            maxDelayMs = 10000,
+            backoffMultiplier = 2.5f
+        )
+
+        /** No retries */
+        val NONE = RetryConfig(maxRetries = 0)
+    }
+}
 
 /**
- * Extension function to execute with retry logic
+ * Extension function to execute with retry logic and exponential backoff with jitter
  */
 suspend fun <T> withRetry(
     config: RetryConfig = RetryConfig(),
+    onRetry: ((attempt: Int, error: ApiError, delayMs: Long) -> Unit)? = null,
     block: suspend (attempt: Int) -> AiResult<T>
 ): AiResult<T> {
     var lastError: ApiError? = null
@@ -167,11 +191,19 @@ suspend fun <T> withRetry(
                     attempt >= config.maxRetries -> false
                     result.error.isRateLimitError() && config.retryOnRateLimit -> true
                     result.error.statusCode >= 500 && config.retryOnServerError -> true
+                    result.error.isNetworkError() && config.retryOnNetworkError -> true
                     result.error.isRetryable() -> true
                     else -> false
                 }
                 if (shouldRetry) {
-                    kotlinx.coroutines.delay(currentDelay)
+                    // Add jitter to prevent thundering herd
+                    val jitter = (currentDelay * config.jitterFactor * Math.random()).toLong()
+                    val delayWithJitter = currentDelay + jitter
+
+                    // Notify about retry
+                    onRetry?.invoke(attempt, result.error, delayWithJitter)
+
+                    kotlinx.coroutines.delay(delayWithJitter)
                     currentDelay = (currentDelay * config.backoffMultiplier).toLong()
                         .coerceAtMost(config.maxDelayMs)
                 } else {
@@ -182,5 +214,9 @@ suspend fun <T> withRetry(
         }
     }
 
-    return AiResult.Error(lastError ?: ApiError("Max retries exceeded", statusCode = 500))
+    return AiResult.Error(lastError ?: ApiError(
+        message = "Request failed after ${config.maxRetries} retries",
+        type = "retry_exhausted",
+        statusCode = 500
+    ))
 }
