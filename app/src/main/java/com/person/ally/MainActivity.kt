@@ -124,7 +124,7 @@ private fun MainScreen() {
                 )
             }
         },
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+        contentWindowInsets = WindowInsets.ime.navigationBars
     ) { paddingValues ->
         Box(
             modifier = Modifier

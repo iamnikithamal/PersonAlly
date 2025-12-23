@@ -19,12 +19,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Favorite
@@ -59,9 +59,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.person.ally.PersonAllyApp
-import com.person.ally.data.model.AssessmentAnswer
 import com.person.ally.ui.components.PrimaryButton
-import com.person.ally.ui.components.SecondaryButton
 import kotlinx.coroutines.launch
 
 private data class OnboardingPage(
@@ -145,11 +143,14 @@ fun OnboardingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp)
+            .padding(horizontal = 24.dp)
     ) {
+        // Top navigation row
         if (currentStep > 0) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -158,10 +159,12 @@ fun OnboardingScreen(
                 ) {
                     Text("Back")
                 }
+
                 PageIndicator(
                     currentPage = currentStep,
                     totalPages = totalSteps
                 )
+
                 if (currentStep < onboardingPages.size) {
                     TextButton(
                         onClick = { currentStep++ }
@@ -176,7 +179,7 @@ fun OnboardingScreen(
             Spacer(modifier = Modifier.height(48.dp))
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         AnimatedContent(
             targetState = currentStep,
@@ -184,20 +187,21 @@ fun OnboardingScreen(
                 (slideInHorizontally { it } + fadeIn()) togetherWith
                         (slideOutHorizontally { -it } + fadeOut())
             },
-            label = "onboarding_content"
+            label = "onboarding_content",
+            modifier = Modifier.weight(1f)
         ) { step ->
             when {
                 step < onboardingPages.size -> {
                     OnboardingPageContent(
                         page = onboardingPages[step],
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
                 step == onboardingPages.size -> {
                     NameInputStep(
                         name = userName,
                         onNameChange = { userName = it },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
                 else -> {
@@ -206,7 +210,7 @@ fun OnboardingScreen(
                         onAnswerChange = { id, value ->
                             assessmentAnswers = assessmentAnswers + (id to value)
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
@@ -214,40 +218,51 @@ fun OnboardingScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        when {
-            currentStep < onboardingPages.size -> {
-                PrimaryButton(
-                    text = if (currentStep == 0) "Get Started" else "Continue",
-                    onClick = { currentStep++ },
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                )
-            }
-            currentStep == onboardingPages.size -> {
-                PrimaryButton(
-                    text = "Continue",
-                    onClick = { currentStep++ },
-                    enabled = userName.trim().length >= 2,
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                )
-            }
-            else -> {
-                PrimaryButton(
-                    text = "Complete Setup",
-                    onClick = {
-                        scope.launch {
-                            app.userProfileRepository.updateName(userName.trim(), null)
-                            app.settingsDataStore.setOnboardingCompleted(true)
-                            app.userProfileRepository.updateOnboardingStatus(true, totalSteps)
-                            onOnboardingComplete()
-                        }
-                    },
-                    enabled = assessmentAnswers.size >= quickAssessmentQuestions.size,
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                )
+        // Fixed bottom button area with consistent width
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
+        ) {
+            when {
+                currentStep < onboardingPages.size -> {
+                    PrimaryButton(
+                        text = if (currentStep == 0) "Get Started" else "Continue",
+                        onClick = { currentStep++ },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                    )
+                }
+                currentStep == onboardingPages.size -> {
+                    PrimaryButton(
+                        text = "Continue",
+                        onClick = { currentStep++ },
+                        enabled = userName.trim().length >= 2,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                    )
+                }
+                else -> {
+                    PrimaryButton(
+                        text = "Complete Setup",
+                        onClick = {
+                            scope.launch {
+                                app.userProfileRepository.updateName(userName.trim(), null)
+                                app.settingsDataStore.setOnboardingCompleted(true)
+                                app.userProfileRepository.updateOnboardingStatus(true, totalSteps)
+                                onOnboardingComplete()
+                            }
+                        },
+                        enabled = assessmentAnswers.size >= quickAssessmentQuestions.size,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                    )
+                }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -335,7 +350,9 @@ private fun NameInputStep(
             onValueChange = onNameChange,
             placeholder = { Text("Your name") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -370,7 +387,9 @@ private fun QuickAssessmentStep(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -420,7 +439,9 @@ private fun QuickAssessmentItem(
         Slider(
             value = value,
             onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
             colors = SliderDefaults.colors(
                 thumbColor = MaterialTheme.colorScheme.primary,
                 activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -457,16 +478,17 @@ private fun PageIndicator(
         horizontalArrangement = Arrangement.Center
     ) {
         repeat(totalPages) { index ->
+            val isSelected = index == currentPage
             Box(
                 modifier = Modifier
                     .padding(horizontal = 4.dp)
                     .size(
-                        width = if (index == currentPage) 24.dp else 8.dp,
+                        width = if (isSelected) 24.dp else 8.dp,
                         height = 8.dp
                     )
                     .clip(RoundedCornerShape(4.dp))
                     .background(
-                        if (index == currentPage)
+                        if (isSelected)
                             MaterialTheme.colorScheme.primary
                         else
                             MaterialTheme.colorScheme.surfaceVariant
