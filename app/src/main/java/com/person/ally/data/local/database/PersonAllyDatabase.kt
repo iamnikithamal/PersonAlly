@@ -16,6 +16,7 @@ import com.person.ally.data.local.dao.ChatDao
 import com.person.ally.data.local.dao.InsightDao
 import com.person.ally.data.local.dao.MemoryDao
 import com.person.ally.data.local.dao.UserProfileDao
+import com.person.ally.data.local.dao.WellnessDao
 import com.person.ally.data.model.Assessment
 import com.person.ally.data.model.AssessmentTypeConverters
 import com.person.ally.data.model.ChatMessage
@@ -25,10 +26,14 @@ import com.person.ally.data.model.DailyBriefing
 import com.person.ally.data.model.Goal
 import com.person.ally.data.model.Habit
 import com.person.ally.data.model.HabitCompletion
+import com.person.ally.data.model.DailyCheckin
 import com.person.ally.data.model.Insight
 import com.person.ally.data.model.InsightTypeConverters
+import com.person.ally.data.model.JournalEntry
 import com.person.ally.data.model.Memory
 import com.person.ally.data.model.MemoryTypeConverters
+import com.person.ally.data.model.MoodEntry
+import com.person.ally.data.model.ScheduleItem
 import com.person.ally.data.model.UniversalContext
 import com.person.ally.data.model.UserProfile
 import com.person.ally.data.model.UserProfileTypeConverters
@@ -50,9 +55,13 @@ import kotlinx.coroutines.launch
         Habit::class,
         HabitCompletion::class,
         AiProvider::class,
-        AiModel::class
+        AiModel::class,
+        MoodEntry::class,
+        JournalEntry::class,
+        ScheduleItem::class,
+        DailyCheckin::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(
@@ -70,6 +79,7 @@ abstract class PersonAllyDatabase : RoomDatabase() {
     abstract fun userProfileDao(): UserProfileDao
     abstract fun insightDao(): InsightDao
     abstract fun aiModelDao(): AiModelDao
+    abstract fun wellnessDao(): WellnessDao
 
     companion object {
         private const val DATABASE_NAME = "personally_database"

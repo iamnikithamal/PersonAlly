@@ -45,6 +45,11 @@ sealed class Screen(val route: String) {
     }
     data object ContextExport : Screen("context/export")
     data object ContextEdit : Screen("context/edit")
+    data object Journal : Screen("journal")
+    data object JournalEntry : Screen("journal/{entryId}") {
+        fun createRoute(entryId: Long) = "journal/$entryId"
+        const val ARG_ENTRY_ID = "entryId"
+    }
 }
 
 /**

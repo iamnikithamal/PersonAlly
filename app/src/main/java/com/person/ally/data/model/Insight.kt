@@ -165,6 +165,209 @@ data class HabitCompletion(
     val note: String? = null
 )
 
+/**
+ * Mood entry for tracking emotional states throughout the day
+ */
+enum class MoodLevel(val value: Int, val label: String, val emoji: String) {
+    VERY_LOW(1, "Very Low", "😢"),
+    LOW(2, "Low", "😔"),
+    NEUTRAL(3, "Okay", "😐"),
+    GOOD(4, "Good", "🙂"),
+    GREAT(5, "Great", "😊"),
+    AMAZING(6, "Amazing", "🤩")
+}
+
+@Entity(tableName = "mood_entries")
+data class MoodEntry(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val moodLevel: MoodLevel,
+    val energyLevel: Int = 5, // 1-10
+    val stressLevel: Int = 5, // 1-10
+    val note: String? = null,
+    val activities: List<String> = emptyList(),
+    val tags: List<String> = emptyList(),
+    val location: String? = null,
+    val weather: String? = null,
+    val sleepHours: Float? = null,
+    val relatedDomains: List<LifeDomain> = emptyList(),
+    val createdAt: Long = System.currentTimeMillis()
+) {
+    val date: Long get() = createdAt
+
+    fun getMoodColor(): String = when (moodLevel) {
+        MoodLevel.VERY_LOW -> "#EF5350"
+        MoodLevel.LOW -> "#FF7043"
+        MoodLevel.NEUTRAL -> "#FFA726"
+        MoodLevel.GOOD -> "#66BB6A"
+        MoodLevel.GREAT -> "#26A69A"
+        MoodLevel.AMAZING -> "#42A5F5"
+    }
+}
+
+/**
+ * Journal entry for personal reflections, thoughts, and experiences
+ */
+enum class JournalEntryType {
+    REFLECTION,
+    GRATITUDE,
+    ACHIEVEMENT,
+    CHALLENGE,
+    LEARNING,
+    IDEA,
+    DREAM,
+    FREE_WRITE
+}
+
+enum class JournalPromptCategory {
+    MORNING_REFLECTION,
+    EVENING_REVIEW,
+    GRATITUDE,
+    SELF_DISCOVERY,
+    GOAL_PROGRESS,
+    RELATIONSHIPS,
+    CREATIVITY,
+    CHALLENGES
+}
+
+@Entity(tableName = "journal_entries")
+data class JournalEntry(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val title: String,
+    val content: String,
+    val entryType: JournalEntryType = JournalEntryType.FREE_WRITE,
+    val mood: MoodLevel? = null,
+    val tags: List<String> = emptyList(),
+    val relatedDomains: List<LifeDomain> = emptyList(),
+    val promptUsed: String? = null,
+    val isPrivate: Boolean = false,
+    val isFavorite: Boolean = false,
+    val wordCount: Int = 0,
+    val readingTimeMinutes: Int = 0,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+) {
+    val preview: String
+        get() = if (content.length > 100) content.take(97) + "..." else content
+
+    fun getTypeIcon(): String = when (entryType) {
+        JournalEntryType.REFLECTION -> "Psychology"
+        JournalEntryType.GRATITUDE -> "Favorite"
+        JournalEntryType.ACHIEVEMENT -> "EmojiEvents"
+        JournalEntryType.CHALLENGE -> "Warning"
+        JournalEntryType.LEARNING -> "School"
+        JournalEntryType.IDEA -> "Lightbulb"
+        JournalEntryType.DREAM -> "NightsStay"
+        JournalEntryType.FREE_WRITE -> "Edit"
+    }
+}
+
+/**
+ * Schedule item for routines, tasks, and events
+ */
+enum class ScheduleItemType {
+    ROUTINE,
+    TASK,
+    EVENT,
+    REMINDER,
+    APPOINTMENT,
+    SELF_CARE
+}
+
+enum class ScheduleRecurrence {
+    NONE,
+    DAILY,
+    WEEKDAYS,
+    WEEKENDS,
+    WEEKLY,
+    BIWEEKLY,
+    MONTHLY,
+    CUSTOM
+}
+
+enum class SchedulePriority {
+    LOW,
+    MEDIUM,
+    HIGH,
+    URGENT
+}
+
+@Entity(tableName = "schedule_items")
+data class ScheduleItem(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val title: String,
+    val description: String = "",
+    val itemType: ScheduleItemType,
+    val domain: LifeDomain? = null,
+    val priority: SchedulePriority = SchedulePriority.MEDIUM,
+    val scheduledAt: Long,
+    val durationMinutes: Int = 30,
+    val recurrence: ScheduleRecurrence = ScheduleRecurrence.NONE,
+    val recurrenceDays: List<Int> = emptyList(), // Day of week (1-7)
+    val reminderMinutesBefore: Int? = null,
+    val isCompleted: Boolean = false,
+    val completedAt: Long? = null,
+    val isAllDay: Boolean = false,
+    val location: String? = null,
+    val notes: String? = null,
+    val tags: List<String> = emptyList(),
+    val linkedGoalId: Long? = null,
+    val linkedHabitId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+) {
+    val isOverdue: Boolean
+        get() = !isCompleted && scheduledAt < System.currentTimeMillis()
+
+    fun getPriorityColor(): String = when (priority) {
+        SchedulePriority.LOW -> "#78909C"
+        SchedulePriority.MEDIUM -> "#42A5F5"
+        SchedulePriority.HIGH -> "#FFA726"
+        SchedulePriority.URGENT -> "#EF5350"
+    }
+
+    fun getTypeIcon(): String = when (itemType) {
+        ScheduleItemType.ROUTINE -> "Loop"
+        ScheduleItemType.TASK -> "Task"
+        ScheduleItemType.EVENT -> "Event"
+        ScheduleItemType.REMINDER -> "NotificationsActive"
+        ScheduleItemType.APPOINTMENT -> "CalendarMonth"
+        ScheduleItemType.SELF_CARE -> "Spa"
+    }
+}
+
+/**
+ * Daily check-in for comprehensive daily tracking
+ */
+@Entity(tableName = "daily_checkins")
+data class DailyCheckin(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val date: Long,
+    val morningMood: MoodLevel? = null,
+    val eveningMood: MoodLevel? = null,
+    val sleepQuality: Int? = null, // 1-10
+    val sleepHours: Float? = null,
+    val energyLevel: Int? = null, // 1-10
+    val stressLevel: Int? = null, // 1-10
+    val productivityLevel: Int? = null, // 1-10
+    val exerciseMinutes: Int = 0,
+    val waterIntake: Int = 0, // glasses
+    val meditationMinutes: Int = 0,
+    val gratitudeItems: List<String> = emptyList(),
+    val highlights: List<String> = emptyList(),
+    val challenges: List<String> = emptyList(),
+    val tomorrowGoals: List<String> = emptyList(),
+    val overallRating: Int? = null, // 1-10
+    val notes: String? = null,
+    val isMorningComplete: Boolean = false,
+    val isEveningComplete: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
 class InsightTypeConverters {
     private val gson = com.google.gson.Gson()
 
@@ -203,6 +406,12 @@ class InsightTypeConverters {
     fun toLifeDomain(value: String): LifeDomain = LifeDomain.valueOf(value)
 
     @TypeConverter
+    fun fromNullableLifeDomain(domain: LifeDomain?): String? = domain?.name
+
+    @TypeConverter
+    fun toNullableLifeDomain(value: String?): LifeDomain? = value?.let { LifeDomain.valueOf(it) }
+
+    @TypeConverter
     fun fromHabitFrequency(frequency: HabitFrequency): String = frequency.name
 
     @TypeConverter
@@ -225,4 +434,43 @@ class InsightTypeConverters {
         val type = object : com.google.gson.reflect.TypeToken<List<Int>>() {}.type
         return gson.fromJson(value, type) ?: emptyList()
     }
+
+    // MoodEntry converters
+    @TypeConverter
+    fun fromMoodLevel(level: MoodLevel): String = level.name
+
+    @TypeConverter
+    fun toMoodLevel(value: String): MoodLevel = MoodLevel.valueOf(value)
+
+    @TypeConverter
+    fun fromNullableMoodLevel(level: MoodLevel?): String? = level?.name
+
+    @TypeConverter
+    fun toNullableMoodLevel(value: String?): MoodLevel? = value?.let { MoodLevel.valueOf(it) }
+
+    // JournalEntry converters
+    @TypeConverter
+    fun fromJournalEntryType(type: JournalEntryType): String = type.name
+
+    @TypeConverter
+    fun toJournalEntryType(value: String): JournalEntryType = JournalEntryType.valueOf(value)
+
+    // ScheduleItem converters
+    @TypeConverter
+    fun fromScheduleItemType(type: ScheduleItemType): String = type.name
+
+    @TypeConverter
+    fun toScheduleItemType(value: String): ScheduleItemType = ScheduleItemType.valueOf(value)
+
+    @TypeConverter
+    fun fromScheduleRecurrence(recurrence: ScheduleRecurrence): String = recurrence.name
+
+    @TypeConverter
+    fun toScheduleRecurrence(value: String): ScheduleRecurrence = ScheduleRecurrence.valueOf(value)
+
+    @TypeConverter
+    fun fromSchedulePriority(priority: SchedulePriority): String = priority.name
+
+    @TypeConverter
+    fun toSchedulePriority(value: String): SchedulePriority = SchedulePriority.valueOf(value)
 }

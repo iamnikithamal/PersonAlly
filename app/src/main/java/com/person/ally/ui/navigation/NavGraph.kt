@@ -23,6 +23,8 @@ import com.person.ally.ui.screens.memories.MemoriesScreen
 import com.person.ally.ui.screens.memories.MemoryDetailScreen
 import com.person.ally.ui.screens.onboarding.OnboardingScreen
 import com.person.ally.ui.screens.profile.ContextEditScreen
+import com.person.ally.ui.screens.journal.JournalEntryScreen
+import com.person.ally.ui.screens.journal.JournalScreen
 import com.person.ally.ui.screens.profile.ContextExportScreen
 import com.person.ally.ui.screens.profile.ProfileScreen
 import com.person.ally.ui.screens.settings.AiModelsScreen
@@ -111,7 +113,8 @@ fun NavGraph(
                 onNavigateToInsight = { id -> navController.navigate(Screen.InsightDetail.createRoute(id)) },
                 onNavigateToGoal = { id -> navController.navigate(Screen.GoalDetail.createRoute(id)) },
                 onNavigateToInsights = { navController.navigate(Screen.Insights.route) },
-                onNavigateToMemories = { navController.navigate(Screen.Memories.route) }
+                onNavigateToMemories = { navController.navigate(Screen.Memories.route) },
+                onNavigateToJournal = { navController.navigate(Screen.Journal.route) }
             )
         }
 
@@ -255,6 +258,32 @@ fun NavGraph(
         // Context Edit
         composable(Screen.ContextEdit.route) {
             ContextEditScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Journal
+        composable(Screen.Journal.route) {
+            JournalScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEntry = { id -> navController.navigate(Screen.JournalEntry.createRoute(id)) },
+                onNavigateToNewEntry = { navController.navigate(Screen.JournalEntry.createRoute(-1L)) }
+            )
+        }
+
+        // Journal Entry (new or edit)
+        composable(
+            route = Screen.JournalEntry.route,
+            arguments = listOf(
+                navArgument(Screen.JournalEntry.ARG_ENTRY_ID) {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+            val entryId = backStackEntry.arguments?.getLong(Screen.JournalEntry.ARG_ENTRY_ID) ?: -1L
+            JournalEntryScreen(
+                entryId = if (entryId == -1L) null else entryId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
