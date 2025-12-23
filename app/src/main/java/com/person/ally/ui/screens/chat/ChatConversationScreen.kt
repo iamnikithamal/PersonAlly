@@ -1,8 +1,18 @@
 package com.person.ally.ui.screens.chat
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -16,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -27,6 +38,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -40,15 +52,15 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -63,22 +75,31 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.person.ally.PersonAllyApp
 import com.person.ally.ai.agent.AllyAgent
+import com.person.ally.ai.model.ErrorCategory
 import com.person.ally.data.local.datastore.AIPersonality
 import com.person.ally.data.local.datastore.AIResponseLength
 import com.person.ally.data.model.ChatMessage
 import com.person.ally.data.model.MessageRole
 import com.person.ally.ui.components.MarkdownText
-import com.person.ally.ui.components.ToolExecutionIndicator
 import com.person.ally.ui.components.ToolExecutionStatus
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -112,7 +133,7 @@ fun ChatConversationScreen(
     var streamingContent by remember { mutableStateOf("") }
     var streamingReasoning by remember { mutableStateOf("") }
     var currentToolExecution by remember { mutableStateOf<Pair<String, ToolExecutionStatus>?>(null) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var errorState by remember { mutableStateOf<AllyAgent.AgentState.Error?>(null) }
     var pendingMessage by remember { mutableStateOf<String?>(null) }
 
     val listState = rememberLazyListState()
@@ -151,7 +172,7 @@ fun ChatConversationScreen(
                 currentToolExecution = state.toolName to ToolExecutionStatus.EXECUTING
             }
             is AllyAgent.AgentState.Error -> {
-                errorMessage = state.message
+                errorState = state
                 streamingContent = ""
                 streamingReasoning = ""
                 currentToolExecution = null
@@ -160,7 +181,7 @@ fun ChatConversationScreen(
                 streamingContent = ""
                 streamingReasoning = ""
                 currentToolExecution = null
-                errorMessage = null
+                errorState = null
             }
             AllyAgent.AgentState.Idle -> {
                 // Reset state when idle
@@ -174,7 +195,7 @@ fun ChatConversationScreen(
 
         inputText = ""
         keyboardController?.hide()
-        errorMessage = null
+        errorState = null
         streamingContent = ""
         streamingReasoning = ""
         pendingMessage = messageText
@@ -186,7 +207,12 @@ fun ChatConversationScreen(
 
             // Get the current model
             val model = currentModel ?: run {
-                errorMessage = "No AI model selected. Please configure a model in Settings > AI Models."
+                errorState = AllyAgent.AgentState.Error(
+                    message = "No AI model selected. Please configure a model in Settings > AI Models.",
+                    isRetryable = false,
+                    category = ErrorCategory.MODEL_NOT_FOUND,
+                    suggestedAction = "Select a model in Settings"
+                )
                 return@launch
             }
 
@@ -243,7 +269,9 @@ fun ChatConversationScreen(
                     contextUsed = conversationHistory.isNotEmpty()
                 )
             } catch (e: Exception) {
-                errorMessage = e.message ?: "An unexpected error occurred"
+                errorState = AllyAgent.AgentState.Error.fromMessage(
+                    e.message ?: "An unexpected error occurred"
+                )
             }
         }
     }
@@ -252,6 +280,7 @@ fun ChatConversationScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .navigationBarsPadding()
             .imePadding()
     ) {
         ConversationTopBar(
@@ -322,28 +351,36 @@ fun ChatConversationScreen(
             }
 
             // Show error message
-            if (errorMessage != null) {
+            if (errorState != null) {
                 item {
                     ErrorMessage(
-                        message = errorMessage!!,
+                        error = errorState!!,
                         onRetry = {
                             val lastUserMessage = messages.lastOrNull { it.role == MessageRole.USER }?.content
                             if (lastUserMessage != null) {
-                                errorMessage = null
+                                errorState = null
                                 sendMessage(lastUserMessage)
                             }
                         },
-                        onDismiss = { errorMessage = null }
+                        onDismiss = { errorState = null }
                     )
                 }
             }
         }
 
-        ChatInputBar(
+        ModernChatInput(
             value = inputText,
             onValueChange = { inputText = it },
             onSend = { sendMessage() },
-            isGenerating = isGenerating
+            onStop = {
+                app.allyAgent.cancel()
+                streamingContent = ""
+                streamingReasoning = ""
+            },
+            isProcessing = isGenerating,
+            modelName = currentModel?.getDisplayNameOrAlias() ?: "No model",
+            isThinkingModel = currentModel?.capabilities?.reasoning == true,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
         )
     }
 }
@@ -486,7 +523,7 @@ private fun WelcomeMessage(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 32.dp),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -518,7 +555,7 @@ private fun SuggestionChips(onSuggestionClick: (String) -> Unit) {
                     Surface(
                         modifier = Modifier.clickable { onSuggestionClick(suggestion) },
                         shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
+                        color = MaterialTheme.colorScheme.surfaceContainerLow
                     ) {
                         Text(
                             text = suggestion,
@@ -579,7 +616,7 @@ private fun ChatMessageBubble(
                 color = if (isUser) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant
+                    MaterialTheme.colorScheme.surfaceContainerLow
                 }
             ) {
                 Column(
@@ -594,7 +631,7 @@ private fun ChatMessageBubble(
                     } else {
                         MarkdownText(
                             markdown = message.content,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
@@ -661,6 +698,17 @@ private fun StreamingMessageBubble(
     reasoning: String,
     toolExecution: Pair<String, ToolExecutionStatus>?
 ) {
+    val infiniteTransition = rememberInfiniteTransition(label = "streaming")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
@@ -695,7 +743,8 @@ private fun StreamingMessageBubble(
                     bottomStart = 4.dp,
                     bottomEnd = 16.dp
                 ),
-                color = MaterialTheme.colorScheme.surfaceVariant
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.animateContentSize()
             ) {
                 Column(
                     modifier = Modifier.padding(12.dp)
@@ -704,20 +753,22 @@ private fun StreamingMessageBubble(
                     if (reasoning.isNotEmpty()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            modifier = Modifier
+                                .padding(bottom = 8.dp)
+                                .alpha(pulseAlpha)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Psychology,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                tint = MaterialTheme.colorScheme.tertiary
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "Thinking...",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontStyle = FontStyle.Italic,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.tertiary
                             )
                         }
                         Text(
@@ -731,7 +782,7 @@ private fun StreamingMessageBubble(
 
                     // Show tool execution
                     if (toolExecution != null) {
-                        ToolExecutionIndicator(
+                        ToolExecutionChip(
                             toolName = toolExecution.first,
                             status = toolExecution.second,
                             modifier = Modifier.padding(bottom = if (content.isNotEmpty()) 8.dp else 0.dp)
@@ -742,16 +793,17 @@ private fun StreamingMessageBubble(
                     if (content.isNotEmpty()) {
                         MarkdownText(
                             markdown = content,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
-                    // Show cursor
+                    // Show cursor when no content yet
                     if (content.isEmpty() && reasoning.isEmpty() && toolExecution == null) {
                         Text(
                             text = "▋",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.alpha(pulseAlpha)
                         )
                     }
                 }
@@ -761,7 +813,86 @@ private fun StreamingMessageBubble(
 }
 
 @Composable
+private fun ToolExecutionChip(
+    toolName: String,
+    status: ToolExecutionStatus,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "tool")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(500),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "toolScale"
+    )
+
+    Surface(
+        modifier = modifier.scale(if (status == ToolExecutionStatus.EXECUTING) scale else 1f),
+        shape = RoundedCornerShape(8.dp),
+        color = when (status) {
+            ToolExecutionStatus.SUCCESS -> MaterialTheme.colorScheme.primaryContainer
+            ToolExecutionStatus.ERROR -> MaterialTheme.colorScheme.errorContainer
+            else -> MaterialTheme.colorScheme.surfaceContainerHigh
+        }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = when (status) {
+                    ToolExecutionStatus.SUCCESS -> "✅"
+                    ToolExecutionStatus.ERROR -> "❌"
+                    else -> "⚙️"
+                },
+                style = MaterialTheme.typography.labelSmall
+            )
+            Text(
+                text = toolName,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
 private fun TypingIndicator() {
+    val infiniteTransition = rememberInfiniteTransition(label = "typing")
+
+    val dot1Alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot1"
+    )
+    val dot2Alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, delayMillis = 200),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot2"
+    )
+    val dot3Alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, delayMillis = 400),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot3"
+    )
+
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -786,24 +917,24 @@ private fun TypingIndicator() {
 
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant
+            color = MaterialTheme.colorScheme.surfaceContainerLow
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Ally is thinking...",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                listOf(dot1Alpha, dot2Alpha, dot3Alpha).forEach { alpha ->
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .alpha(alpha)
+                            .background(
+                                MaterialTheme.colorScheme.primary,
+                                CircleShape
+                            )
+                    )
+                }
             }
         }
     }
@@ -811,142 +942,323 @@ private fun TypingIndicator() {
 
 @Composable
 private fun ErrorMessage(
-    message: String,
+    error: AllyAgent.AgentState.Error,
     onRetry: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    // Use the structured error category for proper handling
+    val errorTitle = when (error.category) {
+        ErrorCategory.AUTHENTICATION -> "Authentication Error"
+        ErrorCategory.RATE_LIMIT -> "Rate Limited"
+        ErrorCategory.NETWORK -> "Connection Error"
+        ErrorCategory.SERVER -> "Server Error"
+        ErrorCategory.INVALID_REQUEST -> "Invalid Request"
+        ErrorCategory.CONTEXT_LENGTH -> "Message Too Long"
+        ErrorCategory.CONTENT_FILTER -> "Content Filtered"
+        ErrorCategory.MODEL_NOT_FOUND -> "Model Not Found"
+        ErrorCategory.QUOTA_EXCEEDED -> "Quota Exceeded"
+        ErrorCategory.UNKNOWN -> "Error"
+    }
+
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(),
+        shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.errorContainer
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Error,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(24.dp)
-            )
+            Row(
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
 
-            Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Error",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = errorTitle,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = error.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                    )
+
+                    // Show suggested action if available
+                    error.suggestedAction?.let { action ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = action,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Dismiss",
+                        tint = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
 
-            IconButton(onClick = onRetry) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Retry",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
+            // Action buttons
+            Spacer(modifier = Modifier.height(12.dp))
 
-            IconButton(onClick = onDismiss) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Dismiss",
-                    tint = MaterialTheme.colorScheme.onErrorContainer
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (error.isRetryable) {
+                    Surface(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onRetry),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.error
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onError,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Retry",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onError
+                            )
+                        }
+                    }
+                } else {
+                    // For non-retryable errors, show a dismiss-style button
+                    Surface(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onDismiss),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "Dismiss",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ChatInputBar(
+private fun ModernChatInput(
     value: String,
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
-    isGenerating: Boolean
+    onStop: () -> Unit,
+    isProcessing: Boolean,
+    modelName: String,
+    isThinkingModel: Boolean,
+    modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(200)),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 1.dp,
+        shadowElevation = 2.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.Bottom
+                .padding(12.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier.weight(1f),
-                placeholder = {
-                    Text(
-                        text = if (isGenerating) "Ally is responding..." else "Message Ally...",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                },
-                textStyle = MaterialTheme.typography.bodyMedium,
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(
-                    onSend = {
-                        if (value.isNotBlank()) {
-                            onSend()
-                            focusManager.clearFocus()
+            // Text input area
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                // Model chip
+                ModelChip(
+                    modelName = modelName,
+                    isThinkingModel = isThinkingModel,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+
+                // Text input
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 24.dp, max = 120.dp),
+                    enabled = !isProcessing,
+                    textStyle = TextStyle(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
+                    keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (value.isNotBlank() && !isProcessing) {
+                                onSend()
+                                focusManager.clearFocus()
+                            }
+                        }
+                    ),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (value.isEmpty()) {
+                                Text(
+                                    text = if (isProcessing) "Ally is responding..." else "Message Ally...",
+                                    style = TextStyle(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        fontSize = 15.sp
+                                    )
+                                )
+                            }
+                            innerTextField()
                         }
                     }
-                ),
-                maxLines = 4,
-                enabled = !isGenerating
-            )
+                )
+            }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
+            // Send/Stop button
             AnimatedVisibility(
-                visible = value.isNotBlank() && !isGenerating,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
+                visible = value.isNotBlank() || isProcessing,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut()
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = CircleShape
+                if (isProcessing) {
+                    // Stop button
+                    IconButton(
+                        onClick = onStop,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Stop,
+                            contentDescription = "Stop generation",
+                            modifier = Modifier.size(20.dp)
                         )
-                        .clip(CircleShape)
-                        .clickable(onClick = {
-                            onSend()
-                            focusManager.clearFocus()
-                        }),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    }
+                } else {
+                    // Send button
+                    IconButton(
+                        onClick = {
+                            if (value.isNotBlank()) {
+                                onSend()
+                                focusManager.clearFocus()
+                            }
+                        },
+                        enabled = value.isNotBlank(),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send message",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ModelChip(
+    modelName: String,
+    isThinkingModel: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = if (isThinkingModel) Icons.Outlined.Psychology else Icons.Outlined.AutoAwesome,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = if (isThinkingModel) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = modelName,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Icon(
+                imageVector = Icons.Outlined.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

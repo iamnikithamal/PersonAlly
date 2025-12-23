@@ -281,7 +281,23 @@ data class UsageInfo(
 )
 
 /**
- * Error response from the API
+ * Error categories for better error handling
+ */
+enum class ErrorCategory {
+    AUTHENTICATION,
+    RATE_LIMIT,
+    NETWORK,
+    SERVER,
+    INVALID_REQUEST,
+    CONTEXT_LENGTH,
+    CONTENT_FILTER,
+    MODEL_NOT_FOUND,
+    QUOTA_EXCEEDED,
+    UNKNOWN
+}
+
+/**
+ * Error response from the API with enhanced error handling
  */
 data class ApiError(
     val message: String,
@@ -290,14 +306,111 @@ data class ApiError(
     val param: String? = null,
     val statusCode: Int = 500
 ) {
+    /**
+     * Categorize the error for handling
+     */
+    val category: ErrorCategory get() = when {
+        isAuthError() -> ErrorCategory.AUTHENTICATION
+        isRateLimitError() -> ErrorCategory.RATE_LIMIT
+        isQuotaExceeded() -> ErrorCategory.QUOTA_EXCEEDED
+        isContextLengthError() -> ErrorCategory.CONTEXT_LENGTH
+        isContentFilterError() -> ErrorCategory.CONTENT_FILTER
+        isModelNotFoundError() -> ErrorCategory.MODEL_NOT_FOUND
+        isInvalidRequest() -> ErrorCategory.INVALID_REQUEST
+        isNetworkError() -> ErrorCategory.NETWORK
+        statusCode >= 500 -> ErrorCategory.SERVER
+        else -> ErrorCategory.UNKNOWN
+    }
+
     fun isRateLimitError(): Boolean =
         statusCode == 429 || type == "rate_limit_exceeded" || code == "rate_limit_exceeded"
 
     fun isAuthError(): Boolean =
-        statusCode == 401 || statusCode == 403 || type == "authentication_error"
+        statusCode == 401 || statusCode == 403 ||
+        type == "authentication_error" || code == "invalid_api_key"
+
+    fun isQuotaExceeded(): Boolean =
+        code == "insufficient_quota" || code == "billing_hard_limit_reached" ||
+        message.contains("quota", ignoreCase = true) ||
+        message.contains("billing", ignoreCase = true)
+
+    fun isContextLengthError(): Boolean =
+        code == "context_length_exceeded" ||
+        message.contains("context length", ignoreCase = true) ||
+        message.contains("maximum context", ignoreCase = true) ||
+        message.contains("token limit", ignoreCase = true)
+
+    fun isContentFilterError(): Boolean =
+        code == "content_filter" || type == "content_policy_violation" ||
+        message.contains("content policy", ignoreCase = true) ||
+        message.contains("safety", ignoreCase = true)
+
+    fun isModelNotFoundError(): Boolean =
+        statusCode == 404 || code == "model_not_found" ||
+        message.contains("model not found", ignoreCase = true) ||
+        message.contains("does not exist", ignoreCase = true)
+
+    fun isInvalidRequest(): Boolean =
+        statusCode == 400 || type == "invalid_request_error"
+
+    fun isNetworkError(): Boolean =
+        statusCode == 0 || statusCode == -1 ||
+        message.contains("network", ignoreCase = true) ||
+        message.contains("timeout", ignoreCase = true) ||
+        message.contains("connection", ignoreCase = true)
 
     fun isRetryable(): Boolean =
-        isRateLimitError() || statusCode >= 500
+        isRateLimitError() || statusCode >= 500 || isNetworkError()
+
+    /**
+     * Get a user-friendly error message
+     */
+    fun getUserFriendlyMessage(): String = when (category) {
+        ErrorCategory.AUTHENTICATION ->
+            "Authentication failed. Please check your API key in Settings."
+        ErrorCategory.RATE_LIMIT ->
+            "Too many requests. Please wait a moment and try again."
+        ErrorCategory.QUOTA_EXCEEDED ->
+            "API quota exceeded. Please check your billing settings with your AI provider."
+        ErrorCategory.CONTEXT_LENGTH ->
+            "Message is too long. Try shortening your conversation or starting a new chat."
+        ErrorCategory.CONTENT_FILTER ->
+            "Your message was flagged by content filters. Please try rephrasing."
+        ErrorCategory.MODEL_NOT_FOUND ->
+            "The selected model is not available. Please choose a different model in Settings."
+        ErrorCategory.NETWORK ->
+            "Network error. Please check your internet connection and try again."
+        ErrorCategory.SERVER ->
+            "The AI service is temporarily unavailable. Please try again in a few moments."
+        ErrorCategory.INVALID_REQUEST ->
+            "Invalid request. Please try again or contact support if the issue persists."
+        ErrorCategory.UNKNOWN ->
+            message.take(150).let { if (message.length > 150) "$it..." else it }
+    }
+
+    /**
+     * Get suggested action for the error
+     */
+    fun getSuggestedAction(): String? = when (category) {
+        ErrorCategory.AUTHENTICATION -> "Go to Settings to update your API key"
+        ErrorCategory.RATE_LIMIT -> "Wait ${getRetryDelaySeconds()}s before retrying"
+        ErrorCategory.QUOTA_EXCEEDED -> "Check billing in your AI provider dashboard"
+        ErrorCategory.CONTEXT_LENGTH -> "Start a new conversation"
+        ErrorCategory.MODEL_NOT_FOUND -> "Select a different model"
+        ErrorCategory.NETWORK -> "Check your internet connection"
+        ErrorCategory.SERVER -> "Retry in a few moments"
+        else -> null
+    }
+
+    /**
+     * Get retry delay in seconds based on error type
+     */
+    fun getRetryDelaySeconds(): Int = when (category) {
+        ErrorCategory.RATE_LIMIT -> 10
+        ErrorCategory.SERVER -> 5
+        ErrorCategory.NETWORK -> 3
+        else -> 0
+    }
 }
 
 /**
