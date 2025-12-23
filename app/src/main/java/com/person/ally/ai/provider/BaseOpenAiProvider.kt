@@ -586,12 +586,17 @@ abstract class BaseOpenAiProvider(
         return try {
             val body = response.body?.string() ?: ""
             val json = JsonParser.parseString(body).asJsonObject
-            val errorObj = json.getAsJsonObject("error") ?: json
+            val errorElement = json.get("error")
+            val errorObj = if (errorElement != null && !errorElement.isJsonNull && errorElement.isJsonObject) {
+                errorElement.asJsonObject
+            } else {
+                json
+            }
 
             ApiError(
-                message = errorObj.get("message")?.asString ?: "Request failed",
-                type = errorObj.get("type")?.asString,
-                code = errorObj.get("code")?.asString,
+                message = getStringOrNull(errorObj, "message") ?: "Request failed",
+                type = getStringOrNull(errorObj, "type"),
+                code = getStringOrNull(errorObj, "code"),
                 statusCode = response.code
             )
         } catch (e: Exception) {

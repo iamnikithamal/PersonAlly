@@ -12,6 +12,7 @@ import com.person.ally.data.repository.ChatRepository
 import com.person.ally.data.repository.InsightRepository
 import com.person.ally.data.repository.MemoryRepository
 import com.person.ally.data.repository.UserProfileRepository
+import com.person.ally.data.repository.WellnessRepository
 import com.person.ally.ui.debug.DebugActivity
 import com.person.ally.util.CrashHandler
 import kotlinx.coroutines.CoroutineScope
@@ -49,6 +50,10 @@ class PersonAllyApp : Application() {
 
     val insightRepository: InsightRepository by lazy {
         InsightRepository(database.insightDao())
+    }
+
+    val wellnessRepository: WellnessRepository by lazy {
+        WellnessRepository(database.wellnessDao())
     }
 
     val aiRepository: AiRepository by lazy {

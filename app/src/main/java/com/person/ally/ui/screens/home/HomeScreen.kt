@@ -80,6 +80,7 @@ import com.person.ally.data.model.Habit
 import com.person.ally.data.model.Insight
 import com.person.ally.data.model.InsightType
 import com.person.ally.data.model.LifeDomain
+import com.person.ally.data.model.MoodLevel
 import com.person.ally.ui.components.PersonAllyCard
 import com.person.ally.ui.components.ProgressIndicator
 import com.person.ally.ui.components.SectionHeader
@@ -98,7 +99,8 @@ fun HomeScreen(
     onNavigateToInsight: (Long) -> Unit,
     onNavigateToGoal: (Long) -> Unit,
     onNavigateToInsights: () -> Unit,
-    onNavigateToMemories: () -> Unit
+    onNavigateToMemories: () -> Unit,
+    onNavigateToJournal: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as PersonAllyApp
@@ -111,9 +113,19 @@ fun HomeScreen(
     val memoryCount by app.memoryRepository.getMemoryCount().collectAsState(initial = 0)
     val activeHabits by app.insightRepository.getActiveHabits().collectAsState(initial = emptyList())
     val conversationCount by app.chatRepository.getConversationCount().collectAsState(initial = 0)
+    val recentMoodEntries by app.wellnessRepository.getRecentMoodEntries(1).collectAsState(initial = emptyList())
 
     var isVisible by remember { mutableStateOf(false) }
+    // Initialize selected mood from today's entry if exists
     var selectedMoodIndex by remember { mutableIntStateOf(-1) }
+
+    // Update selectedMoodIndex when we get today's mood from database
+    LaunchedEffect(recentMoodEntries) {
+        val todaysMood = app.wellnessRepository.getTodaysMoodEntry()
+        if (todaysMood != null) {
+            selectedMoodIndex = todaysMood.moodLevel.ordinal
+        }
+    }
 
     LaunchedEffect(Unit) {
         delay(100)
@@ -168,8 +180,15 @@ fun HomeScreen(
                     selectedMoodIndex = selectedMoodIndex,
                     onMoodSelected = { index ->
                         selectedMoodIndex = index
-                        // Mood tracking - recorded for user feedback
-                        // Future: persist mood entries in a dedicated table
+                        // Save mood to database
+                        scope.launch {
+                            val moodLevel = MoodLevel.entries[index]
+                            app.wellnessRepository.logMood(
+                                moodLevel = moodLevel,
+                                energyLevel = getMoodEnergy(index),
+                                stressLevel = 10 - getMoodEnergy(index) // Inverse of energy as proxy for stress
+                            )
+                        }
                     }
                 )
             }
@@ -291,7 +310,8 @@ fun HomeScreen(
         item {
             ProductivityToolsSection(
                 onChatClick = onNavigateToChat,
-                onAssessmentsClick = onNavigateToAssessments
+                onAssessmentsClick = onNavigateToAssessments,
+                onJournalClick = onNavigateToJournal
             )
         }
 
@@ -1017,10 +1037,11 @@ private fun InsightCard(
 @Composable
 private fun ProductivityToolsSection(
     onChatClick: () -> Unit,
-    onAssessmentsClick: () -> Unit
+    onAssessmentsClick: () -> Unit,
+    onJournalClick: () -> Unit
 ) {
     val tools = listOf(
-        ProductivityTool(Icons.Filled.Notes, "Quick Note", "Capture a thought", MaterialTheme.colorScheme.primary),
+        ProductivityTool(Icons.Filled.Notes, "Journal", "Write thoughts", MaterialTheme.colorScheme.primary),
         ProductivityTool(Icons.Filled.Timer, "Focus Timer", "Stay productive", MaterialTheme.colorScheme.secondary),
         ProductivityTool(Icons.Filled.Event, "Schedule", "Plan your day", MaterialTheme.colorScheme.tertiary),
         ProductivityTool(Icons.Filled.BarChart, "Progress", "Track growth", PersonAllyTheme.extendedColors.success)
@@ -1035,7 +1056,7 @@ private fun ProductivityToolsSection(
                 tool = tool,
                 onClick = {
                     when (tool.title) {
-                        "Quick Note" -> onChatClick()
+                        "Journal" -> onJournalClick()
                         "Progress" -> onAssessmentsClick()
                         else -> {}
                     }

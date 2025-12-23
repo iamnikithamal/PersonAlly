@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -64,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -285,7 +287,10 @@ fun ChatConversationScreen(
         ) {
             if (messages.isEmpty() && !isGenerating && pendingMessage == null) {
                 item {
-                    WelcomeMessage(userName = userProfile?.name ?: "Friend")
+                    WelcomeMessage(
+                        userName = userProfile?.preferredName ?: userProfile?.name ?: "Friend",
+                        onSuggestionClick = { suggestion -> sendMessage(suggestion) }
+                    )
                 }
             }
 
@@ -439,7 +444,10 @@ private fun ConversationTopBar(
 }
 
 @Composable
-private fun WelcomeMessage(userName: String) {
+private fun WelcomeMessage(
+    userName: String,
+    onSuggestionClick: (String) -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -477,17 +485,18 @@ private fun WelcomeMessage(userName: String) {
             text = "I'm Ally, your personal companion.\nHow can I help you today?",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 32.dp)
+            modifier = Modifier.padding(horizontal = 32.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SuggestionChips()
+        SuggestionChips(onSuggestionClick = onSuggestionClick)
     }
 }
 
 @Composable
-private fun SuggestionChips() {
+private fun SuggestionChips(onSuggestionClick: (String) -> Unit) {
     val suggestions = listOf(
         "How am I doing?",
         "Help me reflect",
@@ -500,21 +509,25 @@ private fun SuggestionChips() {
     ) {
         suggestions.chunked(2).forEach { row ->
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Spacer(modifier = Modifier.weight(1f))
                 row.forEach { suggestion ->
                     Surface(
-                        modifier = Modifier.clickable { },
+                        modifier = Modifier.clickable { onSuggestionClick(suggestion) },
                         shape = RoundedCornerShape(20.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Text(
                             text = suggestion,
                             style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                         )
                     }
                 }
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
     }
@@ -860,12 +873,17 @@ private fun ChatInputBar(
     onSend: () -> Unit,
     isGenerating: Boolean
 ) {
+    val focusManager = LocalFocusManager.current
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp
     ) {
         Row(
             modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.Bottom
         ) {
@@ -883,10 +901,19 @@ private fun ChatInputBar(
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { onSend() }),
+                keyboardActions = KeyboardActions(
+                    onSend = {
+                        if (value.isNotBlank()) {
+                            onSend()
+                            focusManager.clearFocus()
+                        }
+                    }
+                ),
                 maxLines = 4,
                 enabled = !isGenerating
             )
@@ -906,7 +933,10 @@ private fun ChatInputBar(
                             shape = CircleShape
                         )
                         .clip(CircleShape)
-                        .clickable(onClick = onSend),
+                        .clickable(onClick = {
+                            onSend()
+                            focusManager.clearFocus()
+                        }),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
