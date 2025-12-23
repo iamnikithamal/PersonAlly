@@ -197,9 +197,9 @@ interface WellnessDao {
     // ==================== Streak Calculations ====================
 
     @Query("""
-        SELECT COUNT(DISTINCT date(date/1000, 'unixepoch', 'localtime'))
+        SELECT COUNT(DISTINCT date(createdAt/1000, 'unixepoch', 'localtime'))
         FROM mood_entries
-        WHERE date(date/1000, 'unixepoch', 'localtime') >= date(:startDate/1000, 'unixepoch', 'localtime')
+        WHERE date(createdAt/1000, 'unixepoch', 'localtime') >= date(:startDate/1000, 'unixepoch', 'localtime')
     """)
     suspend fun getMoodLoggingStreak(startDate: Long): Int
 
