@@ -33,19 +33,6 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Generate Keystore
-        run: |
-          if [ ! -f keystore/personally.jks ]; then
-            keytool -genkeypair -v \
-              -keystore keystore/personally.jks \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -alias personally \
-              -storepass personally2024 \
-              -keypass personally2024 \
-              -dname "CN=PersonAlly,OU=Development,O=PersonAlly,L=Unknown,ST=Unknown,C=US"
-          fi
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3

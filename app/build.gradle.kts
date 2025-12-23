@@ -24,11 +24,15 @@ android {
     }
 
     signingConfigs {
+        val keystorePropertiesFile = rootProject.file("keystore.properties")
+        val keystoreProperties = java.util.Properties()
+        keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+
         create("release") {
-            storeFile = file("../keystore/personally.jks")
-            storePassword = "personally2024"
-            keyAlias = "personally"
-            keyPassword = "personally2024"
+            storeFile = file(keystoreProperties.getProperty("storeFile"))
+            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
         }
     }
 
