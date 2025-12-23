@@ -31,9 +31,9 @@ class PersonAllyApp : Application() {
         SettingsDataStore(this)
     }
 
-    val memoryRepository: MemoryRepository by lazy {
-        MemoryRepository(database.memoryDao())
-    }
+    // Declared early but initialized lazily after userProfileRepository
+    lateinit var memoryRepository: MemoryRepository
+        private set
 
     val chatRepository: ChatRepository by lazy {
         ChatRepository(database.chatDao())
@@ -74,8 +74,14 @@ class PersonAllyApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        initializeRepositories()
         setupCrashHandler()
         initializeAi()
+    }
+
+    private fun initializeRepositories() {
+        // Initialize memoryRepository with userProfileRepository for ecosystem integration
+        memoryRepository = MemoryRepository(database.memoryDao(), userProfileRepository)
     }
 
     private fun initializeAi() {

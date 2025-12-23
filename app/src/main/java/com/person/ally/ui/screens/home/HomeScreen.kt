@@ -1,6 +1,8 @@
 package com.person.ally.ui.screens.home
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,14 +27,27 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.EmojiEmotions
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.SentimentDissatisfied
+import androidx.compose.material.icons.filled.SentimentNeutral
+import androidx.compose.material.icons.filled.SentimentSatisfied
+import androidx.compose.material.icons.filled.SentimentSatisfiedAlt
+import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
+import androidx.compose.material.icons.filled.SentimentVerySatisfied
 import androidx.compose.material.icons.filled.SmartToy
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Stars
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -41,8 +57,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,20 +69,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.person.ally.PersonAllyApp
 import com.person.ally.data.model.DailyBriefing
 import com.person.ally.data.model.Goal
 import com.person.ally.data.model.GoalStatus
+import com.person.ally.data.model.Habit
 import com.person.ally.data.model.Insight
+import com.person.ally.data.model.InsightType
 import com.person.ally.data.model.LifeDomain
 import com.person.ally.ui.components.PersonAllyCard
-import com.person.ally.ui.components.PrimaryButton
 import com.person.ally.ui.components.ProgressIndicator
 import com.person.ally.ui.components.SectionHeader
 import com.person.ally.ui.theme.PersonAllyTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -77,14 +102,18 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as PersonAllyApp
+    val scope = rememberCoroutineScope()
 
     val userProfile by app.userProfileRepository.userProfile.collectAsState(initial = null)
     val todayBriefing by app.insightRepository.getTodayBriefing().collectAsState(initial = null)
     val recentInsights by app.insightRepository.getRecentInsights(5).collectAsState(initial = emptyList())
     val activeGoals by app.insightRepository.getGoalsByStatus(GoalStatus.IN_PROGRESS).collectAsState(initial = emptyList())
     val memoryCount by app.memoryRepository.getMemoryCount().collectAsState(initial = 0)
+    val activeHabits by app.insightRepository.getActiveHabits().collectAsState(initial = emptyList())
+    val conversationCount by app.chatRepository.getConversationCount().collectAsState(initial = 0)
 
     var isVisible by remember { mutableStateOf(false) }
+    var selectedMoodIndex by remember { mutableIntStateOf(-1) }
 
     LaunchedEffect(Unit) {
         delay(100)
@@ -97,6 +126,7 @@ fun HomeScreen(
             .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 100.dp)
     ) {
+        // Welcome Header
         item {
             AnimatedVisibility(
                 visible = isVisible,
@@ -104,28 +134,67 @@ fun HomeScreen(
             ) {
                 WelcomeHeader(
                     userName = userProfile?.name ?: "Friend",
-                    memoryCount = memoryCount,
-                    onNavigateToMemories = onNavigateToMemories
+                    onChatClick = onNavigateToChat
                 )
             }
         }
 
+        // Quick Stats Row
         item {
             Spacer(modifier = Modifier.height(16.dp))
             AnimatedVisibility(
                 visible = isVisible,
-                enter = fadeIn() + slideInVertically { it / 2 }
+                enter = fadeIn() + slideInVertically { it / 4 }
             ) {
-                QuickActionsRow(
-                    onChatClick = onNavigateToChat,
-                    onAssessmentsClick = onNavigateToAssessments
+                QuickStatsRow(
+                    memoryCount = memoryCount,
+                    conversationCount = conversationCount,
+                    insightCount = recentInsights.size,
+                    goalCount = activeGoals.size,
+                    onMemoriesClick = onNavigateToMemories,
+                    onInsightsClick = onNavigateToInsights
                 )
             }
         }
 
+        // Daily Mood Check-in
+        item {
+            Spacer(modifier = Modifier.height(20.dp))
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn() + slideInVertically { it / 3 }
+            ) {
+                MoodCheckInSection(
+                    selectedMoodIndex = selectedMoodIndex,
+                    onMoodSelected = { index ->
+                        selectedMoodIndex = index
+                        // Mood tracking - recorded for user feedback
+                        // Future: persist mood entries in a dedicated table
+                    }
+                )
+            }
+        }
+
+        // Quick Actions Grid
+        item {
+            Spacer(modifier = Modifier.height(20.dp))
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn() + slideInVertically { it / 3 }
+            ) {
+                QuickActionsSection(
+                    onChatClick = onNavigateToChat,
+                    onAssessmentsClick = onNavigateToAssessments,
+                    onMemoriesClick = onNavigateToMemories,
+                    onInsightsClick = onNavigateToInsights
+                )
+            }
+        }
+
+        // Daily Briefing
         if (todayBriefing != null) {
             item {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
                 AnimatedVisibility(
                     visible = isVisible,
                     enter = fadeIn() + slideInVertically { it / 2 }
@@ -135,11 +204,38 @@ fun HomeScreen(
             }
         }
 
+        // Active Habits Section
+        if (activeHabits.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                SectionHeader(
+                    title = "Today's Habits",
+                    action = "${activeHabits.size} active",
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            item {
+                HabitsRow(
+                    habits = activeHabits,
+                    onHabitComplete = { habit ->
+                        scope.launch {
+                            app.insightRepository.recordHabitCompletion(habit.id)
+                        }
+                    }
+                )
+            }
+        }
+
+        // Active Goals Section
         if (activeGoals.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 SectionHeader(
                     title = "Active Goals",
+                    action = "View All",
+                    onActionClick = onNavigateToInsights,
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -160,6 +256,7 @@ fun HomeScreen(
             }
         }
 
+        // Recent Insights Section
         if (recentInsights.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
@@ -181,6 +278,24 @@ fun HomeScreen(
             }
         }
 
+        // Productivity Tools Section
+        item {
+            Spacer(modifier = Modifier.height(24.dp))
+            SectionHeader(
+                title = "Productivity Tools",
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        item {
+            ProductivityToolsSection(
+                onChatClick = onNavigateToChat,
+                onAssessmentsClick = onNavigateToAssessments
+            )
+        }
+
+        // Life Domains Overview
         item {
             Spacer(modifier = Modifier.height(24.dp))
             SectionHeader(
@@ -191,9 +306,7 @@ fun HomeScreen(
         }
 
         item {
-            LifeDomainsGrid(
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
+            LifeDomainsGrid(modifier = Modifier.padding(horizontal = 20.dp))
         }
 
         item {
@@ -205,84 +318,60 @@ fun HomeScreen(
 @Composable
 private fun WelcomeHeader(
     userName: String,
-    memoryCount: Int,
-    onNavigateToMemories: () -> Unit
+    onChatClick: () -> Unit
 ) {
-    Box(
+    val currentDate = remember {
+        SimpleDateFormat("EEEE, MMM d", Locale.getDefault()).format(Date())
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            )
             .padding(20.dp)
             .padding(top = 48.dp)
     ) {
-        Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+        Text(
+            text = currentDate,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = getGreetingText(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = userName,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Surface(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable(onClick = onChatClick),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = CircleShape
-                        ),
+                    modifier = Modifier.size(52.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.SmartToy,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
+                        contentDescription = "Chat with Ally",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column {
-                    Text(
-                        text = "Hello, $userName",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = getGreetingMessage(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable(onClick = onNavigateToMemories),
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    StatItem(
-                        icon = Icons.Filled.Memory,
-                        value = memoryCount.toString(),
-                        label = "Memories"
-                    )
-                    StatItem(
-                        icon = Icons.Filled.TrendingUp,
-                        value = "Growing",
-                        label = "Journey"
-                    )
-                    StatItem(
-                        icon = Icons.Filled.Psychology,
-                        value = "Active",
-                        label = "Ally"
                     )
                 }
             }
@@ -291,78 +380,289 @@ private fun WelcomeHeader(
 }
 
 @Composable
-private fun StatItem(
-    icon: ImageVector,
-    value: String,
-    label: String
+private fun QuickStatsRow(
+    memoryCount: Int,
+    conversationCount: Int,
+    insightCount: Int,
+    goalCount: Int,
+    onMemoriesClick: () -> Unit,
+    onInsightsClick: () -> Unit
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        item {
+            QuickStatChip(
+                icon = Icons.Filled.Memory,
+                value = memoryCount.toString(),
+                label = "Memories",
+                onClick = onMemoriesClick
+            )
+        }
+        item {
+            QuickStatChip(
+                icon = Icons.Filled.Chat,
+                value = conversationCount.toString(),
+                label = "Chats",
+                onClick = {}
+            )
+        }
+        item {
+            QuickStatChip(
+                icon = Icons.Filled.Lightbulb,
+                value = insightCount.toString(),
+                label = "Insights",
+                onClick = onInsightsClick
+            )
+        }
+        item {
+            QuickStatChip(
+                icon = Icons.Filled.Flag,
+                value = goalCount.toString(),
+                label = "Goals",
+                onClick = onInsightsClick
+            )
+        }
     }
 }
 
 @Composable
-private fun QuickActionsRow(
-    onChatClick: () -> Unit,
-    onAssessmentsClick: () -> Unit
+private fun QuickStatChip(
+    icon: ImageVector,
+    value: String,
+    label: String,
+    onClick: () -> Unit
 ) {
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Column {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoodCheckInSection(
+    selectedMoodIndex: Int,
+    onMoodSelected: (Int) -> Unit
+) {
+    val moods = listOf(
+        MoodOption(Icons.Filled.SentimentVeryDissatisfied, "Very Low", Color(0xFFE57373)),
+        MoodOption(Icons.Filled.SentimentDissatisfied, "Low", Color(0xFFFFB74D)),
+        MoodOption(Icons.Filled.SentimentNeutral, "Okay", Color(0xFFFFF176)),
+        MoodOption(Icons.Filled.SentimentSatisfied, "Good", Color(0xFFAED581)),
+        MoodOption(Icons.Filled.SentimentSatisfiedAlt, "Great", Color(0xFF81C784)),
+        MoodOption(Icons.Filled.SentimentVerySatisfied, "Amazing", Color(0xFF4DB6AC))
+    )
+
+    PersonAllyCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.EmojiEmotions,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "How are you feeling today?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                moods.forEachIndexed { index, mood ->
+                    MoodButton(
+                        mood = mood,
+                        isSelected = selectedMoodIndex == index,
+                        onClick = { onMoodSelected(index) }
+                    )
+                }
+            }
+
+            if (selectedMoodIndex >= 0) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "You're feeling ${moods[selectedMoodIndex].label.lowercase()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+private data class MoodOption(
+    val icon: ImageVector,
+    val label: String,
+    val color: Color
+)
+
+@Composable
+private fun MoodButton(
+    mood: MoodOption,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.15f else 1f,
+        animationSpec = tween(200),
+        label = "moodScale"
+    )
+
+    Surface(
+        modifier = Modifier
+            .size((40 * scale).dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        shape = CircleShape,
+        color = if (isSelected) mood.color.copy(alpha = 0.2f) else Color.Transparent
+    ) {
+        Box(
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = mood.icon,
+                contentDescription = mood.label,
+                tint = if (isSelected) mood.color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size((28 * scale).dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickActionsSection(
+    onChatClick: () -> Unit,
+    onAssessmentsClick: () -> Unit,
+    onMemoriesClick: () -> Unit,
+    onInsightsClick: () -> Unit
+) {
+    val actions = listOf(
+        QuickAction(Icons.Filled.Chat, "Chat", "Talk to Ally", MaterialTheme.colorScheme.primary, onChatClick),
+        QuickAction(Icons.Filled.Checklist, "Assess", "Self-discovery", MaterialTheme.colorScheme.secondary, onAssessmentsClick),
+        QuickAction(Icons.Filled.Memory, "Memories", "Your thoughts", MaterialTheme.colorScheme.tertiary, onMemoriesClick),
+        QuickAction(Icons.Filled.Lightbulb, "Insights", "View insights", PersonAllyTheme.extendedColors.warning, onInsightsClick)
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        PrimaryButton(
-            text = "Talk to Ally",
-            onClick = onChatClick,
-            modifier = Modifier.weight(1f),
-            icon = Icons.Filled.Chat
-        )
+        actions.forEach { action ->
+            QuickActionCard(
+                action = action,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
 
-        Surface(
+private data class QuickAction(
+    val icon: ImageVector,
+    val title: String,
+    val subtitle: String,
+    val color: Color,
+    val onClick: () -> Unit
+)
+
+@Composable
+private fun QuickActionCard(
+    action: QuickAction,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .aspectRatio(0.9f)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = action.onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = action.color.copy(alpha = 0.1f)
+    ) {
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .height(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onAssessmentsClick),
-            color = MaterialTheme.colorScheme.secondaryContainer
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = action.color.copy(alpha = 0.2f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Checklist,
+                    imageVector = action.icon,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Assessments",
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    tint = action.color,
+                    modifier = Modifier.size(20.dp)
                 )
             }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = action.title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                color = action.color
+            )
+            Text(
+                text = action.subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -399,11 +699,18 @@ private fun DailyBriefingCard(briefing: DailyBriefing) {
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                Text(
-                    text = "Today's Briefing",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Column {
+                    Text(
+                        text = "Daily Briefing",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Your personalized summary",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -421,10 +728,14 @@ private fun DailyBriefingCard(briefing: DailyBriefing) {
                         modifier = Modifier.padding(vertical = 4.dp),
                         verticalAlignment = Alignment.Top
                     ) {
-                        Text(
-                            text = "•",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .padding(top = 6.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = CircleShape
+                                )
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -434,6 +745,111 @@ private fun DailyBriefingCard(briefing: DailyBriefing) {
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HabitsRow(
+    habits: List<Habit>,
+    onHabitComplete: (Habit) -> Unit
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(habits.take(5)) { habit ->
+            HabitCard(
+                habit = habit,
+                onComplete = { onHabitComplete(habit) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun HabitCard(
+    habit: Habit,
+    onComplete: () -> Unit
+) {
+    val colors = PersonAllyTheme.extendedColors
+    val domainColor = colors.getDomainColor(habit.domain)
+
+    PersonAllyCard(
+        modifier = Modifier.width(160.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(
+                            color = domainColor.copy(alpha = 0.1f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Loop,
+                        contentDescription = null,
+                        tint = domainColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onComplete),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = "Complete",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = habit.title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Stars,
+                    contentDescription = null,
+                    tint = PersonAllyTheme.extendedColors.warning,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "${habit.currentStreak} day streak",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -518,6 +934,15 @@ private fun InsightCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val insightColor = when (insight.type) {
+        InsightType.PATTERN -> MaterialTheme.colorScheme.primary
+        InsightType.DISCOVERY -> MaterialTheme.colorScheme.tertiary
+        InsightType.GROWTH -> PersonAllyTheme.extendedColors.success
+        InsightType.REFLECTION -> MaterialTheme.colorScheme.secondary
+        InsightType.RECOMMENDATION -> PersonAllyTheme.extendedColors.warning
+        InsightType.MILESTONE -> PersonAllyTheme.extendedColors.info
+    }
+
     PersonAllyCard(
         modifier = modifier.fillMaxWidth(),
         onClick = onClick
@@ -530,7 +955,7 @@ private fun InsightCard(
                 modifier = Modifier
                     .size(40.dp)
                     .background(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        color = insightColor.copy(alpha = 0.1f),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -538,7 +963,7 @@ private fun InsightCard(
                 Icon(
                     imageVector = Icons.Filled.Lightbulb,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    tint = insightColor,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -546,11 +971,27 @@ private fun InsightCard(
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = insight.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = insight.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (insight.isBookmarked) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Filled.Bookmark,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -568,6 +1009,95 @@ private fun InsightCard(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProductivityToolsSection(
+    onChatClick: () -> Unit,
+    onAssessmentsClick: () -> Unit
+) {
+    val tools = listOf(
+        ProductivityTool(Icons.Filled.Notes, "Quick Note", "Capture a thought", MaterialTheme.colorScheme.primary),
+        ProductivityTool(Icons.Filled.Timer, "Focus Timer", "Stay productive", MaterialTheme.colorScheme.secondary),
+        ProductivityTool(Icons.Filled.Event, "Schedule", "Plan your day", MaterialTheme.colorScheme.tertiary),
+        ProductivityTool(Icons.Filled.BarChart, "Progress", "Track growth", PersonAllyTheme.extendedColors.success)
+    )
+
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(tools) { tool ->
+            ProductivityToolCard(
+                tool = tool,
+                onClick = {
+                    when (tool.title) {
+                        "Quick Note" -> onChatClick()
+                        "Progress" -> onAssessmentsClick()
+                        else -> {}
+                    }
+                }
+            )
+        }
+    }
+}
+
+private data class ProductivityTool(
+    val icon: ImageVector,
+    val title: String,
+    val subtitle: String,
+    val color: Color
+)
+
+@Composable
+private fun ProductivityToolCard(
+    tool: ProductivityTool,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .width(120.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(
+                        color = tool.color.copy(alpha = 0.1f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = tool.icon,
+                    contentDescription = null,
+                    tint = tool.color,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = tool.title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium
+            )
+
+            Text(
+                text = tool.subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -647,13 +1177,31 @@ private fun LifeDomainItem(
     }
 }
 
-private fun getGreetingMessage(): String {
-    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+private fun getGreetingText(): String {
+    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     return when {
-        hour < 12 -> "Good morning! Ready to explore?"
-        hour < 17 -> "Good afternoon! How are you feeling?"
-        else -> "Good evening! Time for reflection?"
+        hour < 12 -> "Good morning,"
+        hour < 17 -> "Good afternoon,"
+        else -> "Good evening,"
     }
+}
+
+private fun getMoodValue(index: Int): Int = when (index) {
+    0 -> 1
+    1 -> 2
+    2 -> 3
+    3 -> 4
+    4 -> 5
+    5 -> 6
+    else -> 3
+}
+
+private fun getMoodEnergy(index: Int): Int = when (index) {
+    0, 1 -> 2
+    2 -> 3
+    3, 4 -> 4
+    5 -> 5
+    else -> 3
 }
 
 private val LifeDomain.displayName: String

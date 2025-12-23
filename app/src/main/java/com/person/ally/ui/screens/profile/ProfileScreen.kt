@@ -65,7 +65,8 @@ fun ProfileScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToExport: () -> Unit,
     onNavigateToEdit: () -> Unit,
-    onNavigateToAssessments: () -> Unit
+    onNavigateToAssessments: () -> Unit,
+    onNavigateToMemories: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as PersonAllyApp
@@ -168,7 +169,8 @@ fun ProfileScreen(
         item {
             QuickActionsSection(
                 onAssessmentsClick = onNavigateToAssessments,
-                onSettingsClick = onNavigateToSettings
+                onSettingsClick = onNavigateToSettings,
+                onMemoriesClick = onNavigateToMemories
             )
         }
 
@@ -682,12 +684,19 @@ private fun LifeDomainProgressItem(
 @Composable
 private fun QuickActionsSection(
     onAssessmentsClick: () -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onMemoriesClick: () -> Unit
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        QuickActionItem(
+            icon = Icons.Default.Memory,
+            title = "Memories",
+            subtitle = "View and manage your memories",
+            onClick = onMemoriesClick
+        )
         QuickActionItem(
             icon = Icons.Default.Checklist,
             title = "Take Assessments",

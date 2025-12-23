@@ -6,7 +6,10 @@ import com.person.ally.data.model.MemoryCategory
 import com.person.ally.data.model.MemoryImportance
 import kotlinx.coroutines.flow.Flow
 
-class MemoryRepository(private val memoryDao: MemoryDao) {
+class MemoryRepository(
+    private val memoryDao: MemoryDao,
+    private val userProfileRepository: UserProfileRepository? = null
+) {
 
     fun getAllMemories(): Flow<List<Memory>> = memoryDao.getAllMemories()
 
@@ -79,7 +82,14 @@ class MemoryRepository(private val memoryDao: MemoryDao) {
             sourceConversationId = conversationId,
             isUserCreated = false
         )
-        return memoryDao.insertMemory(memory)
+        val id = memoryDao.insertMemory(memory)
+
+        // Auto-regenerate context for important memories
+        if (shouldTriggerContextRegeneration(category, importance)) {
+            triggerContextRegeneration()
+        }
+
+        return id
     }
 
     suspend fun createUserMemory(
@@ -95,7 +105,14 @@ class MemoryRepository(private val memoryDao: MemoryDao) {
             tags = tags,
             isUserCreated = true
         )
-        return memoryDao.insertMemory(memory)
+        val id = memoryDao.insertMemory(memory)
+
+        // Auto-regenerate context for important memories
+        if (shouldTriggerContextRegeneration(category, importance)) {
+            triggerContextRegeneration()
+        }
+
+        return id
     }
 
     suspend fun editMemory(
@@ -115,5 +132,27 @@ class MemoryRepository(private val memoryDao: MemoryDao) {
             updatedAt = System.currentTimeMillis()
         )
         memoryDao.updateMemory(updated)
+
+        // Regenerate context if this is an important memory
+        if (shouldTriggerContextRegeneration(category, importance)) {
+            triggerContextRegeneration()
+        }
+    }
+
+    private fun shouldTriggerContextRegeneration(
+        category: MemoryCategory,
+        importance: MemoryImportance
+    ): Boolean {
+        // Trigger for core identity memories or high importance
+        return category == MemoryCategory.CORE_IDENTITY ||
+                importance == MemoryImportance.HIGH ||
+                importance == MemoryImportance.CRITICAL
+    }
+
+    private suspend fun triggerContextRegeneration() {
+        userProfileRepository?.let { repo ->
+            val memories = memoryDao.getContextMemories(50)
+            repo.regenerateContext(memories)
+        }
     }
 }

@@ -50,8 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -62,9 +60,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.person.ally.PersonAllyApp
 import com.person.ally.data.model.AssessmentAnswer
-import com.person.ally.ui.components.GradientButton
+import com.person.ally.ui.components.PrimaryButton
 import com.person.ally.ui.components.SecondaryButton
-import com.person.ally.ui.theme.PersonAllyTheme
 import kotlinx.coroutines.launch
 
 private data class OnboardingPage(
@@ -219,22 +216,22 @@ fun OnboardingScreen(
 
         when {
             currentStep < onboardingPages.size -> {
-                GradientButton(
+                PrimaryButton(
                     text = if (currentStep == 0) "Get Started" else "Continue",
                     onClick = { currentStep++ },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
                 )
             }
             currentStep == onboardingPages.size -> {
-                GradientButton(
+                PrimaryButton(
                     text = "Continue",
                     onClick = { currentStep++ },
                     enabled = userName.trim().length >= 2,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
                 )
             }
             else -> {
-                GradientButton(
+                PrimaryButton(
                     text = "Complete Setup",
                     onClick = {
                         scope.launch {
@@ -245,7 +242,7 @@ fun OnboardingScreen(
                         }
                     },
                     enabled = assessmentAnswers.size >= quickAssessmentQuestions.size,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
                 )
             }
         }
@@ -259,8 +256,6 @@ private fun OnboardingPageContent(
     page: OnboardingPage,
     modifier: Modifier = Modifier
 ) {
-    val colors = PersonAllyTheme.extendedColors
-
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -270,13 +265,7 @@ private fun OnboardingPageContent(
             modifier = Modifier
                 .size(120.dp)
                 .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            colors.gradientStart,
-                            colors.gradientMiddle,
-                            colors.gradientEnd
-                        )
-                    ),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     shape = CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -285,7 +274,7 @@ private fun OnboardingPageContent(
                 imageVector = page.icon,
                 contentDescription = null,
                 modifier = Modifier.size(56.dp),
-                tint = Color.White
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
 

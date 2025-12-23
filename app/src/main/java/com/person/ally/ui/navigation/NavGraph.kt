@@ -151,7 +151,8 @@ fun NavGraph(
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                 onNavigateToExport = { navController.navigate(Screen.ContextExport.route) },
                 onNavigateToEdit = { navController.navigate(Screen.ContextEdit.route) },
-                onNavigateToAssessments = { navController.navigate(Screen.Assessments.route) }
+                onNavigateToAssessments = { navController.navigate(Screen.Assessments.route) },
+                onNavigateToMemories = { navController.navigate(Screen.Memories.route) }
             )
         }
 

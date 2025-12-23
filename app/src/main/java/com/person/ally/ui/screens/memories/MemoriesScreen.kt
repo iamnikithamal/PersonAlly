@@ -28,7 +28,12 @@ import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
@@ -47,7 +52,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,10 +82,12 @@ fun MemoriesScreen(
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as PersonAllyApp
+    val scope = rememberCoroutineScope()
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<MemoryCategory?>(null) }
     var showSearch by remember { mutableStateOf(false) }
+    var showAddMemoryDialog by remember { mutableStateOf(false) }
 
     val memories by if (searchQuery.isNotBlank()) {
         app.memoryRepository.searchMemories(searchQuery).collectAsState(initial = emptyList())
@@ -96,8 +105,14 @@ fun MemoriesScreen(
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search memories...") },
+                            placeholder = {
+                                Text(
+                                    text = "Search memories...",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            },
                             modifier = Modifier.fillMaxWidth(),
+                            textStyle = MaterialTheme.typography.bodyMedium,
                             singleLine = true,
                             shape = RoundedCornerShape(24.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -142,7 +157,7 @@ fun MemoriesScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { /* TODO: Add new memory */ },
+                onClick = { showAddMemoryDialog = true },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
@@ -153,6 +168,23 @@ fun MemoriesScreen(
             }
         }
     ) { paddingValues ->
+        // Add Memory Dialog
+        if (showAddMemoryDialog) {
+            AddMemoryDialog(
+                onDismiss = { showAddMemoryDialog = false },
+                onSave = { content, category, importance, tags ->
+                    scope.launch {
+                        app.memoryRepository.createUserMemory(
+                            content = content,
+                            category = category,
+                            importance = importance,
+                            tags = tags
+                        )
+                        showAddMemoryDialog = false
+                    }
+                }
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -350,4 +382,187 @@ private fun getCategoryIcon(category: MemoryCategory) = when (category) {
 private fun formatDate(timestamp: Long): String {
     val sdf = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
     return sdf.format(Date(timestamp))
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddMemoryDialog(
+    onDismiss: () -> Unit,
+    onSave: (content: String, category: MemoryCategory, importance: MemoryImportance, tags: List<String>) -> Unit
+) {
+    var content by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf(MemoryCategory.EVOLVING_UNDERSTANDING) }
+    var selectedImportance by remember { mutableStateOf(MemoryImportance.MEDIUM) }
+    var tagsText by remember { mutableStateOf("") }
+    var categoryExpanded by remember { mutableStateOf(false) }
+    var importanceExpanded by remember { mutableStateOf(false) }
+
+    val colors = PersonAllyTheme.extendedColors
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Add Memory",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedTextField(
+                    value = content,
+                    onValueChange = { content = it },
+                    label = { Text("Memory content") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 5,
+                    shape = RoundedCornerShape(12.dp),
+                    textStyle = MaterialTheme.typography.bodyMedium
+                )
+
+                // Category Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = categoryExpanded,
+                    onExpandedChange = { categoryExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedCategory.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Category") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        shape = RoundedCornerShape(12.dp),
+                        textStyle = MaterialTheme.typography.bodyMedium
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        MemoryCategory.entries.forEach { category ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .background(
+                                                    color = colors.getCategoryColor(category),
+                                                    shape = CircleShape
+                                                )
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(category.displayName)
+                                    }
+                                },
+                                onClick = {
+                                    selectedCategory = category
+                                    categoryExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Importance Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = importanceExpanded,
+                    onExpandedChange = { importanceExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedImportance.name.lowercase()
+                            .replaceFirstChar { it.uppercase() },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Importance") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = importanceExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        shape = RoundedCornerShape(12.dp),
+                        textStyle = MaterialTheme.typography.bodyMedium
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = importanceExpanded,
+                        onDismissRequest = { importanceExpanded = false }
+                    ) {
+                        MemoryImportance.entries.forEach { importance ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        importance.name.lowercase()
+                                            .replaceFirstChar { it.uppercase() }
+                                    )
+                                },
+                                onClick = {
+                                    selectedImportance = importance
+                                    importanceExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = tagsText,
+                    onValueChange = { tagsText = it },
+                    label = { Text("Tags (comma separated)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    textStyle = MaterialTheme.typography.bodyMedium
+                )
+            }
+        },
+        confirmButton = {
+            Surface(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(enabled = content.isNotBlank()) {
+                        val tags = tagsText
+                            .split(",")
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() }
+                        onSave(content, selectedCategory, selectedImportance, tags)
+                    },
+                color = if (content.isNotBlank())
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+            ) {
+                Text(
+                    text = "Save",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = if (content.isNotBlank())
+                        MaterialTheme.colorScheme.onPrimary
+                    else
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        },
+        dismissButton = {
+            Surface(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onDismiss),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Text(
+                    text = "Cancel",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        },
+        shape = RoundedCornerShape(24.dp)
+    )
 }
