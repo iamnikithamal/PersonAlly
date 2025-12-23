@@ -4,8 +4,10 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.person.ally.ai.model.AiModel
+import com.person.ally.ai.model.ApiError
 import com.person.ally.ai.model.ChatMessage
 import com.person.ally.ai.model.CompletionRequest
+import com.person.ally.ai.model.ErrorCategory
 import com.person.ally.ai.model.FunctionCall
 import com.person.ally.ai.model.FunctionDefinition
 import com.person.ally.ai.model.FunctionParameters
@@ -18,6 +20,7 @@ import com.person.ally.data.repository.AiRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Ally - The AI Agent for PersonAlly.
@@ -33,6 +36,13 @@ class AllyAgent(
     private val _agentState = MutableStateFlow<AgentState>(AgentState.Idle)
     val agentState: StateFlow<AgentState> = _agentState.asStateFlow()
 
+    // Debouncing for state updates to prevent UI jank
+    private val lastStateUpdate = AtomicLong(0)
+    private companion object {
+        const val STATE_DEBOUNCE_MS = 50L
+        const val MIN_CONTENT_LENGTH_FOR_UPDATE = 10
+    }
+
     /**
      * Represents the current state of the agent
      */
@@ -41,7 +51,32 @@ class AllyAgent(
         data class Thinking(val reasoning: String = "") : AgentState()
         data class Generating(val partialContent: String = "") : AgentState()
         data class ExecutingTool(val toolName: String, val arguments: String) : AgentState()
-        data class Error(val message: String, val isRetryable: Boolean = false) : AgentState()
+        data class Error(
+            val message: String,
+            val isRetryable: Boolean = false,
+            val category: ErrorCategory = ErrorCategory.UNKNOWN,
+            val suggestedAction: String? = null
+        ) : AgentState() {
+            companion object {
+                fun fromApiError(error: ApiError): Error = Error(
+                    message = error.getUserFriendlyMessage(),
+                    isRetryable = error.isRetryable(),
+                    category = error.category,
+                    suggestedAction = error.getSuggestedAction()
+                )
+
+                fun fromMessage(message: String): Error {
+                    // Create a temporary ApiError to leverage its categorization logic
+                    val inferredError = ApiError(message = message, statusCode = 500)
+                    return Error(
+                        message = inferredError.getUserFriendlyMessage(),
+                        isRetryable = inferredError.isRetryable(),
+                        category = inferredError.category,
+                        suggestedAction = inferredError.getSuggestedAction()
+                    )
+                }
+            }
+        }
         data class Complete(val response: AgentResponse) : AgentState()
     }
 
@@ -161,6 +196,28 @@ class AllyAgent(
             stream = true
         )
 
+        // Track pending content for debounced updates
+        var pendingContentLength = 0
+        var pendingReasoningLength = 0
+
+        // Helper function for debounced state updates
+        fun shouldUpdateState(isFirst: Boolean, pendingLength: Int): Boolean {
+            val now = System.currentTimeMillis()
+            val lastUpdate = lastStateUpdate.get()
+            return isFirst ||
+                    now - lastUpdate >= STATE_DEBOUNCE_MS ||
+                    pendingLength >= MIN_CONTENT_LENGTH_FOR_UPDATE
+        }
+
+        fun updateStateIfNeeded(newState: AgentState, pendingLength: Int, isFirst: Boolean = false): Boolean {
+            if (shouldUpdateState(isFirst, pendingLength)) {
+                _agentState.value = newState
+                lastStateUpdate.set(System.currentTimeMillis())
+                return true
+            }
+            return false
+        }
+
         // Execute streaming completion
         aiRepository.streamCompletion(
             model = model,
@@ -169,11 +226,24 @@ class AllyAgent(
                 when (chunk) {
                     is StreamChunk.Reasoning -> {
                         fullReasoning.append(chunk.text)
-                        _agentState.value = AgentState.Thinking(fullReasoning.toString())
+                        pendingReasoningLength += chunk.text.length
+                        if (updateStateIfNeeded(
+                                AgentState.Thinking(fullReasoning.toString()),
+                                pendingReasoningLength
+                            )) {
+                            pendingReasoningLength = 0
+                        }
                     }
                     is StreamChunk.Content -> {
                         fullContent.append(chunk.text)
-                        _agentState.value = AgentState.Generating(fullContent.toString())
+                        pendingContentLength += chunk.text.length
+                        if (updateStateIfNeeded(
+                                AgentState.Generating(fullContent.toString()),
+                                pendingContentLength,
+                                isFirst = chunk.isFirst
+                            )) {
+                            pendingContentLength = 0
+                        }
                     }
                     is StreamChunk.ToolCallStart -> {
                         pendingToolCalls.add(ToolCall(
@@ -182,6 +252,7 @@ class AllyAgent(
                             function = FunctionCall(name = chunk.name, arguments = "")
                         ))
                         _agentState.value = AgentState.ExecutingTool(chunk.name, "")
+                        lastStateUpdate.set(System.currentTimeMillis())
                     }
                     is StreamChunk.ToolCallArguments -> {
                         val index = pendingToolCalls.indexOfFirst { it.id == chunk.id }
@@ -211,9 +282,13 @@ class AllyAgent(
             },
             onComplete = { content, reasoning, tokens ->
                 tokensUsed = tokens
+                // Final state update with complete content
+                if (fullContent.isNotEmpty()) {
+                    _agentState.value = AgentState.Generating(fullContent.toString())
+                }
             },
-            onError = { message, isRetryable ->
-                _agentState.value = AgentState.Error(message, isRetryable)
+            onError = { message, _ ->
+                _agentState.value = AgentState.Error.fromMessage(message)
             }
         )
 
@@ -275,6 +350,7 @@ class AllyAgent(
 
         var fullContent = StringBuilder()
         var tokensUsed = 0
+        var pendingContentLength = 0
 
         val request = aiRepository.createCompletionRequest(
             model = model,
@@ -291,7 +367,18 @@ class AllyAgent(
                 when (chunk) {
                     is StreamChunk.Content -> {
                         fullContent.append(chunk.text)
-                        _agentState.value = AgentState.Generating(fullContent.toString())
+                        pendingContentLength += chunk.text.length
+
+                        // Debounced state update
+                        val now = System.currentTimeMillis()
+                        val lastUpdate = lastStateUpdate.get()
+                        if (chunk.isFirst ||
+                            now - lastUpdate >= STATE_DEBOUNCE_MS ||
+                            pendingContentLength >= MIN_CONTENT_LENGTH_FOR_UPDATE) {
+                            _agentState.value = AgentState.Generating(fullContent.toString())
+                            lastStateUpdate.set(now)
+                            pendingContentLength = 0
+                        }
                     }
                     is StreamChunk.Usage -> {
                         tokensUsed = chunk.totalTokens
@@ -300,9 +387,13 @@ class AllyAgent(
                 }
                 onChunk(chunk)
             },
-            onComplete = { _, _, tokens -> tokensUsed = tokens },
-            onError = { message, isRetryable ->
-                _agentState.value = AgentState.Error(message, isRetryable)
+            onComplete = { _, _, tokens ->
+                tokensUsed = tokens
+                // Final update with complete content
+                _agentState.value = AgentState.Generating(fullContent.toString())
+            },
+            onError = { message, _ ->
+                _agentState.value = AgentState.Error.fromMessage(message)
             }
         )
 

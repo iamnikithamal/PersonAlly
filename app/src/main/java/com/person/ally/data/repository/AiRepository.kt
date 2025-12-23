@@ -17,13 +17,17 @@ import com.person.ally.ai.provider.RetryConfig
 import com.person.ally.ai.provider.withRetry
 import com.person.ally.data.local.dao.AiModelDao
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Repository for managing AI providers, models, and completions.
@@ -43,6 +47,21 @@ class AiRepository(private val aiModelDao: AiModelDao) {
 
     private val _streamingReasoning = MutableStateFlow("")
     val streamingReasoning: StateFlow<String> = _streamingReasoning.asStateFlow()
+
+    // Debouncing for streaming updates to prevent UI jank
+    private val lastContentUpdate = AtomicLong(0)
+    private val lastReasoningUpdate = AtomicLong(0)
+    private val contentBuffer = StringBuilder()
+    private val reasoningBuffer = StringBuilder()
+    private var debouncedContentJob: Job? = null
+    private var debouncedReasoningJob: Job? = null
+
+    companion object {
+        // Debounce interval in milliseconds - prevents UI updates more frequent than this
+        private const val DEBOUNCE_INTERVAL_MS = 50L
+        // Minimum characters before forcing an update (ensures responsiveness)
+        private const val MIN_CHARS_BEFORE_UPDATE = 10
+    }
 
     init {
         // Register DeepInfra provider factory
@@ -220,7 +239,7 @@ class AiRepository(private val aiModelDao: AiModelDao) {
     }
 
     /**
-     * Execute a streaming completion with retry logic
+     * Execute a streaming completion with retry logic and debounced updates
      */
     suspend fun streamCompletion(
         model: AiModel,
@@ -238,6 +257,10 @@ class AiRepository(private val aiModelDao: AiModelDao) {
         _isGenerating.value = true
         _streamingContent.value = ""
         _streamingReasoning.value = ""
+        contentBuffer.clear()
+        reasoningBuffer.clear()
+        lastContentUpdate.set(0)
+        lastReasoningUpdate.set(0)
 
         var fullContent = StringBuilder()
         var fullReasoning = StringBuilder()
@@ -248,12 +271,38 @@ class AiRepository(private val aiModelDao: AiModelDao) {
                 when (chunk) {
                     is StreamChunk.Content -> {
                         fullContent.append(chunk.text)
-                        _streamingContent.value = fullContent.toString()
+                        contentBuffer.append(chunk.text)
+
+                        // Debounced update for streaming content
+                        val now = System.currentTimeMillis()
+                        val lastUpdate = lastContentUpdate.get()
+                        val bufferLength = contentBuffer.length
+
+                        if (now - lastUpdate >= DEBOUNCE_INTERVAL_MS ||
+                            bufferLength >= MIN_CHARS_BEFORE_UPDATE ||
+                            chunk.isFirst) {
+                            // Update immediately
+                            _streamingContent.value = fullContent.toString()
+                            contentBuffer.clear()
+                            lastContentUpdate.set(now)
+                        }
                         onChunk(chunk)
                     }
                     is StreamChunk.Reasoning -> {
                         fullReasoning.append(chunk.text)
-                        _streamingReasoning.value = fullReasoning.toString()
+                        reasoningBuffer.append(chunk.text)
+
+                        // Debounced update for reasoning content
+                        val now = System.currentTimeMillis()
+                        val lastUpdate = lastReasoningUpdate.get()
+                        val bufferLength = reasoningBuffer.length
+
+                        if (now - lastUpdate >= DEBOUNCE_INTERVAL_MS ||
+                            bufferLength >= MIN_CHARS_BEFORE_UPDATE) {
+                            _streamingReasoning.value = fullReasoning.toString()
+                            reasoningBuffer.clear()
+                            lastReasoningUpdate.set(now)
+                        }
                         onChunk(chunk)
                     }
                     is StreamChunk.Usage -> {
@@ -261,9 +310,19 @@ class AiRepository(private val aiModelDao: AiModelDao) {
                         onChunk(chunk)
                     }
                     is StreamChunk.Error -> {
+                        // Flush any pending content before error
+                        if (fullContent.isNotEmpty()) {
+                            _streamingContent.value = fullContent.toString()
+                        }
+                        if (fullReasoning.isNotEmpty()) {
+                            _streamingReasoning.value = fullReasoning.toString()
+                        }
                         onError(chunk.message, chunk.isRetryable)
                     }
                     is StreamChunk.Done -> {
+                        // Final flush - ensure all content is displayed
+                        _streamingContent.value = fullContent.toString()
+                        _streamingReasoning.value = fullReasoning.toString()
                         onComplete(
                             fullContent.toString(),
                             fullReasoning.toString().takeIf { it.isNotBlank() },
@@ -274,9 +333,15 @@ class AiRepository(private val aiModelDao: AiModelDao) {
                 }
             }
         } catch (e: Exception) {
+            // Flush any pending content before reporting error
+            if (fullContent.isNotEmpty()) {
+                _streamingContent.value = fullContent.toString()
+            }
             onError(e.message ?: "Unknown error", false)
         } finally {
             _isGenerating.value = false
+            contentBuffer.clear()
+            reasoningBuffer.clear()
         }
     }
 

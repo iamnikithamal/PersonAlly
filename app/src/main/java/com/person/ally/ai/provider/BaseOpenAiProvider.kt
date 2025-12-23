@@ -482,8 +482,10 @@ abstract class BaseOpenAiProvider(
             ))
         }
 
-        // Process choices
-        val choices = json.getAsJsonArray("choices") ?: return chunks
+        // Process choices - safely handle null values
+        val choicesElement = json.get("choices")
+        if (choicesElement == null || choicesElement.isJsonNull || !choicesElement.isJsonArray) return chunks
+        val choices = choicesElement.asJsonArray
         if (choices.size() == 0) return chunks
 
         val choiceElement = choices.get(0)
@@ -508,8 +510,10 @@ abstract class BaseOpenAiProvider(
             chunks.add(StreamChunk.Reasoning(reasoning, isThinking = true))
         }
 
-        // Extract tool calls
-        delta.getAsJsonArray("tool_calls")?.forEach { tcElement ->
+        // Extract tool calls - safely handle null values
+        val toolCallsElement = delta.get("tool_calls")
+        if (toolCallsElement != null && !toolCallsElement.isJsonNull && toolCallsElement.isJsonArray) {
+            toolCallsElement.asJsonArray.forEach { tcElement ->
             val tcObj = tcElement.asJsonObject
             val index = getIntOrNull(tcObj, "index") ?: 0
 
@@ -517,22 +521,26 @@ abstract class BaseOpenAiProvider(
 
             getStringOrNull(tcObj, "id")?.let { id ->
                 builder.id = id
-                val funcObj = tcObj.getAsJsonObject("function")
-                funcObj?.let {
-                    getStringOrNull(it, "name")?.let { name ->
+                val funcElement = tcObj.get("function")
+                if (funcElement != null && !funcElement.isJsonNull && funcElement.isJsonObject) {
+                    val funcObj = funcElement.asJsonObject
+                    getStringOrNull(funcObj, "name")?.let { name ->
                         builder.name = name
                         chunks.add(StreamChunk.ToolCallStart(id, name))
                     }
                 }
             }
 
-            tcObj.getAsJsonObject("function")?.let { funcObj ->
+            val funcObjElement = tcObj.get("function")
+            if (funcObjElement != null && !funcObjElement.isJsonNull && funcObjElement.isJsonObject) {
+                val funcObj = funcObjElement.asJsonObject
                 getStringOrNull(funcObj, "arguments")?.let { args ->
                     builder.appendArguments(args)
                     builder.id?.let { id ->
                         chunks.add(StreamChunk.ToolCallArguments(id, args))
                     }
                 }
+            }
             }
         }
 
